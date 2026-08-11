@@ -1,0 +1,77 @@
+{% extends "films/base.html" %}
+
+{% block title %}graphfi — profile{% endblock %}
+
+{% block content %}
+<h1>Watch journal</h1>
+
+<section class="stat-row">
+  <div class="stat"><span class="num">{{ overview.total }}</span><span class="stat-label">films</span></div>
+  <div class="stat"><span class="num">{{ overview.rated }}</span><span class="stat-label">rated</span></div>
+  <div class="stat"><span class="num">{% if overview.avg %}{{ overview.avg|floatformat:1 }}{% else %}—{% endif %}</span><span class="stat-label">average</span></div>
+  <div class="stat"><span class="num">{% if overview.span %}{{ overview.years_covered }}/{{ overview.span }}{% else %}—{% endif %}</span><span class="stat-label">years covered</span></div>
+</section>
+
+<section class="panel">
+  <h2>The strip</h2>
+  <p class="hint">One frame per release year{% if overview.first_year %}, {{ overview.first_year }}–{{ overview.last_year }}{% endif %}. Brightness is the year's average; a dark frame is a year not touched yet. Click a frame to open its films.</p>
+  <div class="scroll-x">{{ rail }}</div>
+</section>
+
+<section class="panel">
+  <h2>Ratings</h2>
+  <p class="hint">
+    X axis:
+    {% if axis == "year" %}
+      <strong>release year</strong> · <a href="?axis=watched">switch to watch date</a>
+    {% else %}
+      <strong>watch date</strong> · <a href="?axis=year">switch to release year</a>
+    {% endif %}
+  </p>
+  <div class="scroll-x">{{ scatter }}</div>
+</section>
+
+<div class="panel-grid">
+  <section class="panel">
+    <h2>Distribution</h2>
+    <div class="scroll-x">{{ histogram }}</div>
+  </section>
+  <section class="panel">
+    <h2>Genres</h2>
+    <div class="scroll-x">{{ genre_bars }}</div>
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Genre × decade</h2>
+  <div class="scroll-x">{{ heatmap }}</div>
+</section>
+
+<section class="panel">
+  <h2>People</h2>
+  <div class="people-grid">
+    {% for table in people_tables %}
+      {% if table.ranked or table.rest %}
+      <div class="people-block">
+        <h3><a href="/people/?role={{ table.role }}">{{ table.label }}s</a></h3>
+        <table class="people-table">
+          <thead><tr><th></th><th>Name</th><th class="num-col">Films</th><th class="num-col">Avg</th></tr></thead>
+          <tbody>
+          {% for p in table.ranked|slice:":10" %}
+            <tr>
+              <td class="cell-photo">{% if p.photo_url %}<img src="{{ p.photo_url }}" alt="" loading="lazy">{% else %}<span class="no-photo"></span>{% endif %}</td>
+              <td><a href="/person/{{ p.pk }}/">{{ p.name }}</a></td>
+              <td class="num-col num">{{ p.count }}</td>
+              <td class="num-col num">{{ p.avg|floatformat:1 }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="hint">Nobody above the threshold yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

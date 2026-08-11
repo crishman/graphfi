@@ -1,0 +1,34 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}graphfi{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'films/style.css' %}">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">graphfi</a>
+  <nav class="site-nav">
+    <a href="/films/">Films</a>
+    <a href="/people/">People</a>
+    <a href="/add/">Add</a>
+    <a href="/admin/">Admin</a>
+  </nav>
+</header>
+{% if messages %}
+<ul class="messages">
+  {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+</ul>
+{% endif %}
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+</footer>
+</body>
+</html>
