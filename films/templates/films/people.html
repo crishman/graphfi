@@ -24,7 +24,7 @@
         <td class="num-col num">{{ p.avg|floatformat:1 }}</td>
       </tr>
     {% empty %}
-      <tr><td colspan="4" class="hint">Nobody above the threshold yet.</td></tr>
+      <tr><td colspan="4" class="hint">Nobody here yet — these tables are built from your ratings. Rate a few films and their {{ table.label|lower }}s will appear.</td></tr>
     {% endfor %}
     </tbody>
   </table>
