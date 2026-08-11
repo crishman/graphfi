@@ -66,6 +66,18 @@ class ViewTests(TestCase):
         self.assertContains(response, "Charlie Chaplin")
         self.assertEqual(self.client.get("/people/?role=hack").status_code, 404)
 
+    def test_people_below_threshold_shown_open_when_no_ranked(self):
+        # Chaplin has one rated film — below the default threshold of 3 —
+        # so the ranked table is empty and the rest list must be visible.
+        response = self.client.get("/people/?role=dir")
+        self.assertContains(response, "<details open>", html=False)
+        self.assertContains(response, "everyone so far is in the list below")
+
+    def test_profile_shows_below_threshold_people(self):
+        response = self.client.get("/")
+        self.assertContains(response, "still below the ranking threshold")
+        self.assertContains(response, "Charlie Chaplin")
+
     def test_person_detail(self):
         response = self.client.get(f"/person/{self.chaplin.pk}/")
         self.assertContains(response, "The Kid")

@@ -173,7 +173,8 @@ def people_for_role(role, min_films=None):
             "avg": person.avg_rating,
         }
         (ranked if person.film_count >= min_films else rest).append(entry)
-    return {"role": role, "label": ROLE_LABELS[role], "ranked": ranked, "rest": rest}
+    return {"role": role, "label": ROLE_LABELS[role], "ranked": ranked,
+            "rest": rest, "min_films": min_films}
 
 
 def person_roles(person):
