@@ -61,13 +61,6 @@ class ViewTests(TestCase):
     def test_film_detail_404(self):
         self.assertEqual(self.client.get("/film/99999/").status_code, 404)
 
-    def test_film_detail_links_to_admin_for_rating(self):
-        response = self.client.get(f"/film/{self.bare.pk}/")
-        self.assertContains(response, f"/admin/films/film/{self.bare.pk}/change/")
-        self.assertContains(response, "Set rating in admin")
-        response = self.client.get(f"/film/{self.kid.pk}/")
-        self.assertContains(response, "Edit rating in admin")
-
     def test_people_role_tabs(self):
         response = self.client.get("/people/?role=dir")
         self.assertContains(response, "Charlie Chaplin")
@@ -83,6 +76,85 @@ class ViewTests(TestCase):
         Film.objects.all().delete()
         for url in ("/", "/?axis=watched", "/films/", "/people/", "/add/"):
             self.assertEqual(self.client.get(url).status_code, 200, url)
+
+
+class RateFilmTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth.models import User
+
+        User.objects.create_superuser("owner", "", "pass")
+        cls.film = Film.objects.create(title="The General", year=1926)
+
+    def login(self):
+        self.client.login(username="owner", password="pass")
+
+    def test_widget_hidden_from_anonymous(self):
+        response = self.client.get(f"/film/{self.film.pk}/")
+        self.assertNotContains(response, "rate-form")
+
+    def test_widget_shown_to_staff(self):
+        self.login()
+        response = self.client.get(f"/film/{self.film.pk}/")
+        self.assertContains(response, "rate-form")
+        self.assertContains(response, 'name="rating" value="10"')
+
+    def test_anonymous_post_redirects_to_login(self):
+        response = self.client.post(f"/film/{self.film.pk}/rate/", {"rating": "9"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+        self.film.refresh_from_db()
+        self.assertIsNone(self.film.rating)
+
+    def test_rating_saved_with_default_date(self):
+        self.login()
+        response = self.client.post(f"/film/{self.film.pk}/rate/", {"rating": "9"})
+        self.assertEqual(response.status_code, 302)
+        self.film.refresh_from_db()
+        self.assertEqual(self.film.rating, 9)
+        self.assertIsNotNone(self.film.watched_at)
+
+    def test_rating_saved_with_explicit_date(self):
+        self.login()
+        self.client.post(f"/film/{self.film.pk}/rate/",
+                         {"rating": "7", "watched_at": "2026-08-10"})
+        self.film.refresh_from_db()
+        self.assertEqual(self.film.rating, 7)
+        self.assertEqual(str(self.film.watched_at), "2026-08-10")
+
+    def test_keep_updates_date_only(self):
+        Film.objects.filter(pk=self.film.pk).update(rating=8)
+        self.login()
+        self.client.post(f"/film/{self.film.pk}/rate/",
+                         {"rating": "keep", "watched_at": "2026-08-01"})
+        self.film.refresh_from_db()
+        self.assertEqual(self.film.rating, 8)
+        self.assertEqual(str(self.film.watched_at), "2026-08-01")
+
+    def test_clear_removes_rating_keeps_date(self):
+        import datetime
+
+        Film.objects.filter(pk=self.film.pk).update(
+            rating=8, watched_at=datetime.date(2026, 8, 1))
+        self.login()
+        self.client.post(f"/film/{self.film.pk}/rate/", {"rating": "clear"})
+        self.film.refresh_from_db()
+        self.assertIsNone(self.film.rating)
+        self.assertEqual(str(self.film.watched_at), "2026-08-01")
+
+    def test_garbage_rating_ignored(self):
+        self.login()
+        for raw in ("0", "11", "9.5", "ten"):
+            self.client.post(f"/film/{self.film.pk}/rate/", {"rating": raw})
+        self.film.refresh_from_db()
+        self.assertIsNone(self.film.rating)
+
+    def test_bad_date_does_not_break_save(self):
+        self.login()
+        self.client.post(f"/film/{self.film.pk}/rate/",
+                         {"rating": "6", "watched_at": "not-a-date"})
+        self.film.refresh_from_db()
+        self.assertEqual(self.film.rating, 6)
 
 
 class BulkAddViewTests(TestCase):

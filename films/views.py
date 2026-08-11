@@ -1,10 +1,14 @@
 """Views are glue: stats + charts + template. No logic lives here."""
 
+import datetime
+
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from . import bulk, charts, stats
@@ -82,8 +86,40 @@ def film_detail(request, pk):
         "credit_blocks": stats.film_credits(film),
         "same_year": stats.same_year_films(film),
         "rating_color": charts.rating_color(film.rating),
+        # The 1-10 buttons carry the lamp scale; warm cells need dark digits.
+        "rating_buttons": [
+            (value, charts.rating_color(value),
+             charts.GROUND if value >= 7 else charts.TEXT)
+            for value in range(1, 11)
+        ],
+        "today": timezone.localdate(),
     }
     return render(request, "films/film_detail.html", context)
+
+
+@staff_member_required
+def rate_film(request, pk):
+    """Inline rating from the film card. Reuses the admin session — the
+    site itself still has no accounts."""
+    film = get_object_or_404(Film, pk=pk)
+    if request.method == "POST":
+        raw = request.POST.get("rating", "")
+        if raw == "clear":
+            film.rating = None
+        elif raw.isdigit() and 1 <= int(raw) <= 10:
+            film.rating = int(raw)
+        elif raw != "keep":
+            return redirect(f"/film/{pk}/")
+        date_raw = request.POST.get("watched_at", "").strip()
+        if date_raw:
+            try:
+                film.watched_at = datetime.date.fromisoformat(date_raw)
+            except ValueError:
+                pass
+        elif film.rating and film.watched_at is None:
+            film.watched_at = timezone.localdate()
+        film.save()
+    return redirect(f"/film/{pk}/")
 
 
 def people(request):
