@@ -6,3 +6,4 @@ db.sqlite3
 .env
 .DS_Store
 staticfiles/
+graphfi-plan.md
