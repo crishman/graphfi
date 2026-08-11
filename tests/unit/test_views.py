@@ -161,12 +161,29 @@ class RateFilmTests(TestCase):
         self.film.refresh_from_db()
         self.assertIsNone(self.film.rating)
 
-    def test_bad_date_does_not_break_save(self):
+    def test_day_first_date_format_accepted(self):
         self.login()
         self.client.post(f"/film/{self.film.pk}/rate/",
-                         {"rating": "6", "watched_at": "not-a-date"})
+                         {"rating": "keep", "watched_at": "20.08.2026"})
+        self.film.refresh_from_db()
+        self.assertEqual(str(self.film.watched_at), "2026-08-20")
+
+    def test_bad_date_reports_error_but_saves_rating(self):
+        self.login()
+        response = self.client.post(
+            f"/film/{self.film.pk}/rate/",
+            {"rating": "6", "watched_at": "not-a-date"}, follow=True,
+        )
         self.film.refresh_from_db()
         self.assertEqual(self.film.rating, 6)
+        self.assertContains(response, "Could not read the date")
+
+    def test_save_shows_confirmation_message(self):
+        self.login()
+        response = self.client.post(
+            f"/film/{self.film.pk}/rate/", {"rating": "8"}, follow=True,
+        )
+        self.assertContains(response, "rating 8, watched")
 
 
 class BulkAddViewTests(TestCase):

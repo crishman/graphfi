@@ -1,7 +1,5 @@
 """Views are glue: stats + charts + template. No logic lives here."""
 
-import datetime
-
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
@@ -112,13 +110,21 @@ def rate_film(request, pk):
             return redirect(f"/film/{pk}/")
         date_raw = request.POST.get("watched_at", "").strip()
         if date_raw:
-            try:
-                film.watched_at = datetime.date.fromisoformat(date_raw)
-            except ValueError:
-                pass
+            parsed = bulk.parse_date(date_raw)
+            if parsed is None:
+                messages.error(
+                    request,
+                    f"Could not read the date '{date_raw}' — "
+                    "use YYYY-MM-DD or DD.MM.YYYY.",
+                )
+            else:
+                film.watched_at = parsed
         elif film.rating and film.watched_at is None:
             film.watched_at = timezone.localdate()
         film.save()
+        rating = film.rating if film.rating is not None else "—"
+        watched = film.watched_at.isoformat() if film.watched_at else "—"
+        messages.success(request, f"{film}: rating {rating}, watched {watched}.")
     return redirect(f"/film/{pk}/")
 
 
