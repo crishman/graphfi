@@ -1,0 +1,60 @@
+{% extends "films/base.html" %}
+
+{% block title %}graphfi — add films{% endblock %}
+
+{% block content %}
+<h1>Add films</h1>
+
+<section class="panel">
+  <p class="hint">
+    One film per line: <code class="num">Title | year | rating | date | genres</code>.
+    Title and year are required. Date is <span class="num">DD.MM.YYYY</span> or <span class="num">YYYY-MM-DD</span>.
+    Genres are slugs, comma-separated, at most 3. Lines starting with <code>#</code> are skipped.
+    Existing films (same title + year) are updated, not duplicated.
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <textarea name="text" rows="12" placeholder="Metropolis | 1927 | 9 | 20.03.2026 | scifi, drama">{{ text }}</textarea>
+    <p>
+      <button type="submit" name="action" value="preview">Preview</button>
+      {% if rows and not errors %}
+      <button type="submit" name="action" value="save">Save {{ rows|length }} row{{ rows|length|pluralize }}</button>
+      {% endif %}
+    </p>
+  </form>
+</section>
+
+{% if errors %}
+<section class="panel">
+  <h2>Errors — nothing was saved</h2>
+  <ul class="bulk-errors">
+    {% for e in errors %}
+    <li><span class="num">line {{ e.line_no }}</span>: {{ e.message }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if rows %}
+<section class="panel">
+  <h2>Parsed rows</h2>
+  <table>
+    <thead><tr><th class="num-col">Line</th><th>Title</th><th class="num-col">Year</th><th class="num-col">Rating</th><th class="num-col">Date</th><th>Genres</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td class="num-col num">{{ row.line_no }}</td>
+        <td>{{ row.title }}</td>
+        <td class="num-col num">{{ row.year }}</td>
+        <td class="num-col num">{{ row.rating|default_if_none:"—" }}</td>
+        <td class="num-col num">{{ row.watched_at|default_if_none:"—" }}</td>
+        <td>{{ row.genres|join:", " }}</td>
+        <td class="row-status-{{ row.status }}">{{ row.status }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

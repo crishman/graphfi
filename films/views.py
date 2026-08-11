@@ -1,12 +1,13 @@
 """Views are glue: stats + charts + template. No logic lives here."""
 
+from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import Http404
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.safestring import mark_safe
 
-from . import charts, stats
+from . import bulk, charts, stats
 from .models import Credit, Film, Genre, Person
 
 SORTS = {
@@ -104,3 +105,21 @@ def person_detail(request, pk):
         "role_blocks": stats.person_roles(person),
     }
     return render(request, "films/person_detail.html", context)
+
+
+def bulk_add(request):
+    text = ""
+    rows = errors = None
+    if request.method == "POST":
+        text = request.POST.get("text", "")
+        rows, errors = bulk.parse_text(text)
+        rows = bulk.preview_rows(rows)
+        if request.POST.get("action") == "save" and not errors and rows:
+            result = bulk.apply_rows(rows)
+            messages.success(
+                request,
+                f"Saved: {result['created']} new, {result['updated']} updated.",
+            )
+            return redirect("/films/?sort=-watched")
+    context = {"text": text, "rows": rows, "errors": errors}
+    return render(request, "films/bulk_add.html", context)
