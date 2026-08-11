@@ -1,94 +1,110 @@
 # graphfi
 
-Личный журнал просмотров кино с графиками. Django + SQLite, диаграммы — SVG,
-собранный на питоне. Никакого JS.
+A personal film-watching journal with analytics. Django + SQLite, charts are
+SVG assembled in Python. No JavaScript at all.
 
-## Запуск
+The owner watches cinema as a systematic survey by year, starting from 1920.
+The core value is **seeing the picture fill in as you advance through the
+years** — not maintaining a catalogue. Everything else serves that.
+
+## Running
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 python manage.py migrate
-python manage.py seed_genres          # залить закрытый словарь жанров
+python manage.py seed_genres          # load the closed genre vocabulary
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-- `http://127.0.0.1:8000/` — профиль с графиками
-- `http://127.0.0.1:8000/add/` — добавить пачкой
-- `http://127.0.0.1:8000/admin/` — правка всего
+- `http://127.0.0.1:8000/` — profile with the charts
+- `http://127.0.0.1:8000/add/` — batch add
+- `http://127.0.0.1:8000/admin/` — edit everything
 
-## Как этим пользоваться
+## How to use it
 
-**1. Накидать список.** На `/add/` вставляешь строки вида
-`Название | год | оценка | дата | жанры`. Оценка, дата и жанры необязательны —
-можно сначала залить список того, что собираешься смотреть, а оценки проставить
-потом в админке (там правится прямо в таблице, без захода в карточку).
+**1. Dump in a list.** On `/add/` paste lines like
+`Title | year | rating | date | genres`. Rating, date and genres are
+optional — you can load a watchlist first and rate later in the admin
+(ratings and watch dates are editable right in the list view, no need to
+open film pages).
 
-**2. Подтянуть метаданные.**
+**2. Pull in metadata.**
 
 ```bash
-export TMDB_API_KEY=...
-python manage.py resolve            # спросит по каждому фильму, какой вариант верный
-python manage.py resolve --auto     # без вопросов, берёт первое совпадение по году
+export TMDB_API_KEY=[API_KEY]
+python manage.py resolve            # asks which candidate is right, film by film
+python manage.py resolve --auto     # no questions, first candidate matching the year
+python manage.py resolve --id 42    # a single film
+python manage.py resolve --force    # including films already linked
 ```
 
-Постеры и фото не скачиваются — в базе лежат только ссылки на CDN TMDB.
-Это сознательно: чужие изображения не воспроизводятся, а встраиваются.
+Posters and photos are never downloaded — the database stores only links to
+the TMDB CDN. That is deliberate: other people's images are embedded, not
+reproduced.
 
-Для кино 1920–1950-х TMDB часто не знает операторов и композиторов, поэтому
-после него резолвер добивает пустые роли из Wikidata по IMDb-id. Wikidata
-отдаётся под CC0, TMDB требует атрибуцию — при публикации сайта не забудь
-строчку «This product uses the TMDB API but is not endorsed or certified by TMDB».
+For 1920s–1950s cinema TMDB often has no cinematographers or composers, so
+after TMDB the resolver tops up the missing roles from Wikidata by IMDb id.
+Wikidata data is CC0; TMDB requires attribution — the footer already carries
+"This product uses the TMDB API but is not endorsed or certified by TMDB".
 
-**3. Массовые правки.**
+The resolver never overwrites fields you filled by hand — it only fills
+empty ones.
+
+**3. Mass edits.**
 
 ```bash
 python manage.py export_csv --out films.csv
-# правишь в чём угодно
+# edit in whatever you like
 python manage.py import_csv films.csv --dry-run
 python manage.py import_csv films.csv
 ```
 
-Матчинг при импорте: сначала по `id`, потом по `tmdb_id`, потом по
-паре «название + год». Состав через CSV не ходит — это работа `resolve`.
+Import matching order: `id`, then `tmdb_id`, then the title + year pair.
+Credits do not travel through CSV — that is `resolve`'s job. `--dry-run`
+runs everything in a transaction and rolls it back.
 
-## Что на дашборде
+## What is on the dashboard
 
-- **Плёнка** — по кадру на каждый год, от первого просмотренного до последнего.
-  Яркость кадра = средняя оценка за год, пустой кадр = год ещё не тронут.
-  Клик по кадру открывает фильмы этого года. Это и есть картинка прогресса.
-- **Оценки** — точки по годам выпуска с линией средней; переключается на ось
-  «дата просмотра». Клик по точке ведёт на фильм.
-- **Жанры** — средняя по каждому жанру плюс матрица жанр × десятилетие.
-- **Люди** — актёры, режиссёры, операторы, композиторы: сколько фильмов и
-  средняя оценка. Актёры меньше чем с тремя фильмами свёрнуты отдельно:
-  средняя по одному фильму — шум, а не сигнал.
+- **The strip** — one frame per release year, from the first rated year to
+  the last. Frame brightness is the year's average rating; a dark frame is a
+  year not touched yet. Clicking a frame opens that year's films. This is
+  the picture of progress.
+- **Ratings** — a dot per film by release year with a yearly-average line;
+  switches to a watch-date axis. Clicking a dot opens the film.
+- **Genres** — average per genre, plus a genre × decade matrix.
+- **People** — actors, directors, cinematographers, composers, writers: film
+  count and average rating each. People with fewer than three films are
+  collapsed separately: an average over one film is noise, not signal.
 
-## Настройки
+## Settings
 
 `graphfi/settings.py`:
-- `MIN_FILMS_FOR_RANKING` — порог попадания в основной рейтинг персон (по умолчанию 3)
-- `TMDB_API_KEY` — читается из окружения
+- `MIN_FILMS_FOR_RANKING` — threshold for the main people ranking (default 3)
+- `TMDB_API_KEY` — read from the environment
 
-`films/genres.py` — закрытый словарь жанров и лимит тегов на фильм.
-После правки словаря — `python manage.py seed_genres`.
+`films/genres.py` — the closed genre vocabulary and the per-film tag limit.
+After editing the vocabulary run `python manage.py seed_genres`.
 
-## Перед выкладыванием наружу
+## Before publishing anywhere
 
-`DEBUG = False`, `SECRET_KEY` из окружения, `ALLOWED_HOSTS`, отдача статики
-через whitenoise или nginx. SQLite для одного пользователя вытянет и там.
+`DEBUG=False`, `SECRET_KEY` from the environment (`DJANGO_SECRET_KEY`),
+`ALLOWED_HOSTS` (`DJANGO_ALLOWED_HOSTS`), static files via whitenoise or
+nginx. SQLite will hold up fine there for a single user.
 
-## Структура
+## Structure
 
 ```
 films/
   models.py      Film, Person, Genre, Credit
-  stats.py       агрегаты (чистые функции, ничего не рендерят)
-  charts.py      генерация SVG
-  bulk.py        разбор пакетного ввода
-  resolver.py    TMDB + Wikidata (не зависит от Django)
-  admin.py       редактирование
-  management/commands/  seed_genres, resolve, export_csv, import_csv
+  genres.py      closed genre vocabulary + TMDB genre map
+  stats.py       aggregates (pure functions, render nothing)
+  charts.py      SVG generation (takes stats output, never hits the DB)
+  bulk.py        batch-input parsing
+  resolver.py    TMDB + Wikidata (does not import Django)
+  views.py       glue: stats + charts + templates
+  admin.py       editing workbench
+  management/commands/   seed_genres, resolve, export_csv, import_csv
 ```
