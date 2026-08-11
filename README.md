@@ -79,6 +79,17 @@ runs everything in a transaction and rolls it back.
   count and average rating each. People with fewer than three films are
   collapsed separately: an average over one film is noise, not signal.
 
+## Tests
+
+```bash
+python manage.py test tests.unit
+```
+
+Unit tests cover the SVG chart functions, aggregates, batch-input parsing,
+the TMDB/Wikidata payload parsing (fixtures, no network), the resolve
+command's fill-only-empty and no-duplicates guarantees, views, and the CSV
+commands.
+
 ## Settings
 
 `graphfi/settings.py`:

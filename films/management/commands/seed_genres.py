@@ -25,4 +25,5 @@ class Command(BaseCommand):
                     f"({genre.films.count()} films). Remove it by hand if it is dead."
                 )
             )
-        self.stdout.write(self.style.SUCCESS(f"Genres: {created} created, {updated} updated."))
+        if options["verbosity"] >= 1:
+            self.stdout.write(self.style.SUCCESS(f"Genres: {created} created, {updated} updated."))
