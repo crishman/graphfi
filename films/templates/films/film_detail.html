@@ -37,6 +37,8 @@
         {% if film.imdb_id %} <a href="https://www.imdb.com/title/{{ film.imdb_id }}/" rel="noopener">IMDb</a>{% endif %}
       </dd>
       {% endif %}
+      <dt>Rate</dt>
+      <dd><a href="/admin/films/film/{{ film.pk }}/change/">{% if film.rating %}Edit rating in admin{% else %}Set rating in admin{% endif %}</a></dd>
     </dl>
     {% if film.note %}
     <h2>Note</h2>

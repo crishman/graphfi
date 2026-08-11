@@ -61,6 +61,13 @@ class ViewTests(TestCase):
     def test_film_detail_404(self):
         self.assertEqual(self.client.get("/film/99999/").status_code, 404)
 
+    def test_film_detail_links_to_admin_for_rating(self):
+        response = self.client.get(f"/film/{self.bare.pk}/")
+        self.assertContains(response, f"/admin/films/film/{self.bare.pk}/change/")
+        self.assertContains(response, "Set rating in admin")
+        response = self.client.get(f"/film/{self.kid.pk}/")
+        self.assertContains(response, "Edit rating in admin")
+
     def test_people_role_tabs(self):
         response = self.client.get("/people/?role=dir")
         self.assertContains(response, "Charlie Chaplin")
