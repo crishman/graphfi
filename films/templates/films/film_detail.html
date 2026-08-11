@@ -44,8 +44,9 @@
           {% csrf_token %}
           <span class="rate-date">
             <label for="rate-watched">watched on</label>
-            <input id="rate-watched" type="date" name="watched_at"
-                   value="{% if film.watched_at %}{{ film.watched_at|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}">
+            <input id="rate-watched" type="text" name="watched_at" class="num"
+                   size="12" placeholder="DD.MM.YYYY"
+                   value="{% if film.watched_at %}{{ film.watched_at|date:'d.m.Y' }}{% else %}{{ today|date:'d.m.Y' }}{% endif %}">
             <button type="submit" name="rating" value="keep" class="rate-keep">save date</button>
           </span>
           <span class="rate-buttons">
