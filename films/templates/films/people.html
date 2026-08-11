@@ -1,0 +1,50 @@
+{% extends "films/base.html" %}
+
+{% block title %}graphfi — people{% endblock %}
+
+{% block content %}
+<h1>People</h1>
+
+<nav class="site-nav" style="margin-bottom:1rem">
+  {% for r, label in roles %}
+    <a href="?role={{ r }}" {% if r == role %}style="color:var(--amber)"{% endif %}>{{ label }}s</a>
+  {% endfor %}
+</nav>
+
+<section class="panel">
+  <h2>{{ table.label }}s</h2>
+  <table class="people-table">
+    <thead><tr><th></th><th>Name</th><th class="num-col">Films</th><th class="num-col">Avg</th></tr></thead>
+    <tbody>
+    {% for p in table.ranked %}
+      <tr>
+        <td class="cell-photo">{% if p.photo_url %}<img src="{{ p.photo_url }}" alt="" loading="lazy">{% else %}<span class="no-photo"></span>{% endif %}</td>
+        <td><a href="/person/{{ p.pk }}/">{{ p.name }}</a></td>
+        <td class="num-col num">{{ p.count }}</td>
+        <td class="num-col num">{{ p.avg|floatformat:1 }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="hint">Nobody above the threshold yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if table.rest %}
+  <details>
+    <summary>Fewer films than the ranking threshold — {{ table.rest|length }} more</summary>
+    <table class="people-table">
+      <tbody>
+      {% for p in table.rest %}
+        <tr>
+          <td class="cell-photo">{% if p.photo_url %}<img src="{{ p.photo_url }}" alt="" loading="lazy">{% else %}<span class="no-photo"></span>{% endif %}</td>
+          <td><a href="/person/{{ p.pk }}/">{{ p.name }}</a></td>
+          <td class="num-col num">{{ p.count }}</td>
+          <td class="num-col num">{{ p.avg|floatformat:1 }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "films/base.html" %}
+
+{% block title %}{{ person.name }} — graphfi{% endblock %}
+
+{% block content %}
+<div class="person-head">
+  {% if person.photo_url %}<img src="{{ person.photo_url }}" alt="Photo: {{ person.name }}">{% endif %}
+  <div>
+    <h1>{{ person.name }}</h1>
+    <p class="hint">
+      {% if person.original_name and person.original_name != person.name %}{{ person.original_name }} · {% endif %}
+      {% if person.birth_year %}<span class="num">{{ person.birth_year }}{% if person.death_year %}–{{ person.death_year }}{% endif %}</span>{% endif %}
+    </p>
+  </div>
+</div>
+
+{% for block in role_blocks %}
+<section class="panel">
+  <h2>As {{ block.label|lower }}
+    <span class="num" style="font-size:0.9rem;color:var(--muted)">
+      {{ block.count }} film{{ block.count|pluralize }}{% if block.avg %}, avg {{ block.avg|floatformat:1 }}{% endif %}
+    </span>
+  </h2>
+  <table>
+    <thead><tr><th class="num-col">Year</th><th>Film</th>{% if block.role == "act" %}<th>Character</th>{% endif %}<th class="num-col">Rating</th></tr></thead>
+    <tbody>
+    {% for credit in block.credits %}
+      <tr>
+        <td class="num-col num">{{ credit.film.year }}</td>
+        <td><a href="/film/{{ credit.film.pk }}/">{{ credit.film.title }}</a></td>
+        {% if block.role == "act" %}<td class="hint">{{ credit.character }}</td>{% endif %}
+        <td class="num-col num">{% if credit.film.rating %}{{ credit.film.rating }}{% else %}—{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% empty %}
+<p class="hint">No credits recorded.</p>
+{% endfor %}
+{% endblock %}

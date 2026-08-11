@@ -1,0 +1,85 @@
+{% extends "films/base.html" %}
+
+{% block title %}{{ film.title }} ({{ film.year }}) — graphfi{% endblock %}
+
+{% block content %}
+<h1>{{ film.title }} <span class="num" style="color:var(--muted)">{{ film.year }}</span></h1>
+
+<div class="film-card">
+  <div class="poster">
+    {% if film.poster_url %}
+      <img src="{{ film.poster_url }}" alt="Poster: {{ film.title }}">
+    {% else %}
+      <div class="poster-placeholder" style="width:240px;height:340px"></div>
+    {% endif %}
+  </div>
+
+  <div style="flex:1">
+    <dl class="film-meta">
+      {% if film.rating %}
+      <dt>Rating</dt>
+      <dd><span class="rating-badge" style="background:{{ rating_color }}">{{ film.rating }}</span></dd>
+      {% endif %}
+      {% if film.original_title and film.original_title != film.title %}
+      <dt>Original title</dt><dd>{{ film.original_title }}</dd>
+      {% endif %}
+      {% if film.watched_at %}<dt>Watched</dt><dd class="num">{{ film.watched_at|date:"Y-m-d" }}</dd>{% endif %}
+      {% if film.runtime %}<dt>Runtime</dt><dd class="num">{{ film.runtime }} min</dd>{% endif %}
+      {% if film.country %}<dt>Country</dt><dd>{{ film.country }}</dd>{% endif %}
+      {% if film.genres.all %}
+      <dt>Genres</dt>
+      <dd>{% for g in film.genres.all %}<a href="/films/?genre={{ g.slug }}">{{ g.label }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</dd>
+      {% endif %}
+      {% if film.imdb_id or film.tmdb_id %}
+      <dt>Links</dt>
+      <dd>
+        {% if film.tmdb_id %}<a href="https://www.themoviedb.org/movie/{{ film.tmdb_id }}" rel="noopener">TMDB</a>{% endif %}
+        {% if film.imdb_id %} <a href="https://www.imdb.com/title/{{ film.imdb_id }}/" rel="noopener">IMDb</a>{% endif %}
+      </dd>
+      {% endif %}
+    </dl>
+    {% if film.note %}
+    <h2>Note</h2>
+    <p>{{ film.note|linebreaksbr }}</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if credit_blocks %}
+<section class="panel">
+  <h2>Credits</h2>
+  <div class="people-grid">
+    {% for block in credit_blocks %}
+    <div>
+      <h3>{{ block.label }}{{ block.credits|length|pluralize }}</h3>
+      <table>
+        <tbody>
+        {% for credit in block.credits %}
+          <tr>
+            <td class="cell-photo">{% if credit.person.photo_url %}<img src="{{ credit.person.photo_url }}" alt="" loading="lazy">{% else %}<span class="no-photo"></span>{% endif %}</td>
+            <td><a href="/person/{{ credit.person.pk }}/">{{ credit.person.name }}</a></td>
+            <td class="hint">{{ credit.character }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if same_year %}
+<section class="panel">
+  <h2>Same year — {{ film.year }}</h2>
+  <ul>
+    {% for other in same_year %}
+    <li>
+      <a href="/film/{{ other.pk }}/">{{ other.title }}</a>
+      {% if other.rating %}<span class="num"> — {{ other.rating }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}
