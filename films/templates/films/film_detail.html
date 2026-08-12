@@ -37,6 +37,32 @@
         {% if film.imdb_id %} <a href="https://www.imdb.com/title/{{ film.imdb_id }}/" rel="noopener">IMDb</a>{% endif %}
       </dd>
       {% endif %}
+      {% if user.is_staff %}
+      <dt>Rate</dt>
+      <dd>
+        <form method="post" action="/film/{{ film.pk }}/rate/" class="rate-form">
+          {% csrf_token %}
+          <span class="rate-date">
+            <label for="rate-watched">watched on</label>
+            <input id="rate-watched" type="text" name="watched_at" class="num"
+                   size="12" placeholder="DD.MM.YYYY"
+                   value="{% if film.watched_at %}{{ film.watched_at|date:'d.m.Y' }}{% else %}{{ today|date:'d.m.Y' }}{% endif %}">
+            <button type="submit" name="rating" value="keep" class="rate-keep">save date</button>
+          </span>
+          <span class="rate-buttons">
+            {% for value, color, ink in rating_buttons %}
+            <button type="submit" name="rating" value="{{ value }}"
+                    class="rate-btn num{% if film.rating == value %} current{% endif %}"
+                    style="background:{{ color }};color:{{ ink }}"
+                    aria-label="Rate {{ value }}">{{ value }}</button>
+            {% endfor %}
+            {% if film.rating %}
+            <button type="submit" name="rating" value="clear" class="rate-keep">clear</button>
+            {% endif %}
+          </span>
+        </form>
+      </dd>
+      {% endif %}
     </dl>
     {% if film.note %}
     <h2>Note</h2>

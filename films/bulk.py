@@ -30,7 +30,9 @@ class RowError:
     message: str
 
 
-def _parse_date(raw):
+def parse_date(raw):
+    """DD.MM.YYYY or YYYY-MM-DD -> date, anything else -> None. Shared by
+    batch input and the film-card rating widget."""
     for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
         try:
             return datetime.datetime.strptime(raw, fmt).date()
@@ -77,7 +79,7 @@ def parse_text(text):
 
         watched_at = None
         if date_raw:
-            watched_at = _parse_date(date_raw)
+            watched_at = parse_date(date_raw)
             if watched_at is None:
                 errors.append(
                     RowError(line_no, f"Date must be DD.MM.YYYY or YYYY-MM-DD, got '{date_raw}'.")

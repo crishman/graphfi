@@ -24,14 +24,20 @@
         <td class="num-col num">{{ p.avg|floatformat:1 }}</td>
       </tr>
     {% empty %}
-      <tr><td colspan="4" class="hint">Nobody above the threshold yet.</td></tr>
+      <tr><td colspan="4" class="hint">
+        {% if table.rest %}
+          Nobody has {{ table.min_films }} rated films yet — everyone so far is in the list below.
+        {% else %}
+          Nobody here yet — these tables are built from your ratings. Rate a few films and their {{ table.label|lower }}s will appear.
+        {% endif %}
+      </td></tr>
     {% endfor %}
     </tbody>
   </table>
 
   {% if table.rest %}
-  <details>
-    <summary>Fewer films than the ranking threshold — {{ table.rest|length }} more</summary>
+  <details{% if not table.ranked %} open{% endif %}>
+    <summary>Fewer than {{ table.min_films }} rated films — {{ table.rest|length }} people</summary>
     <table class="people-table">
       <tbody>
       {% for p in table.rest %}
