@@ -93,33 +93,15 @@ class ViewTests(TestCase):
 class RateFilmTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        from django.contrib.auth.models import User
-
-        User.objects.create_superuser("owner", "", "pass")
         cls.film = Film.objects.create(title="The General", year=1926)
 
-    def login(self):
-        self.client.login(username="owner", password="pass")
-
-    def test_widget_hidden_from_anonymous(self):
-        response = self.client.get(f"/film/{self.film.pk}/")
-        self.assertNotContains(response, "rate-form")
-
-    def test_widget_shown_to_staff(self):
-        self.login()
+    def test_widget_shown_to_everyone(self):
+        """The card widget is open, like /add/ — the site has no accounts."""
         response = self.client.get(f"/film/{self.film.pk}/")
         self.assertContains(response, "rate-form")
         self.assertContains(response, 'name="rating" value="10"')
 
-    def test_anonymous_post_redirects_to_login(self):
-        response = self.client.post(f"/film/{self.film.pk}/rate/", {"rating": "9"})
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/admin/login/", response.url)
-        self.film.refresh_from_db()
-        self.assertIsNone(self.film.rating)
-
     def test_rating_saved_with_default_date(self):
-        self.login()
         response = self.client.post(f"/film/{self.film.pk}/rate/", {"rating": "9"})
         self.assertEqual(response.status_code, 302)
         self.film.refresh_from_db()
@@ -127,7 +109,6 @@ class RateFilmTests(TestCase):
         self.assertIsNotNone(self.film.watched_at)
 
     def test_rating_saved_with_explicit_date(self):
-        self.login()
         self.client.post(f"/film/{self.film.pk}/rate/",
                          {"rating": "7", "watched_at": "2026-08-10"})
         self.film.refresh_from_db()
@@ -136,7 +117,6 @@ class RateFilmTests(TestCase):
 
     def test_keep_updates_date_only(self):
         Film.objects.filter(pk=self.film.pk).update(rating=8)
-        self.login()
         self.client.post(f"/film/{self.film.pk}/rate/",
                          {"rating": "keep", "watched_at": "2026-08-01"})
         self.film.refresh_from_db()
@@ -148,28 +128,24 @@ class RateFilmTests(TestCase):
 
         Film.objects.filter(pk=self.film.pk).update(
             rating=8, watched_at=datetime.date(2026, 8, 1))
-        self.login()
         self.client.post(f"/film/{self.film.pk}/rate/", {"rating": "clear"})
         self.film.refresh_from_db()
         self.assertIsNone(self.film.rating)
         self.assertEqual(str(self.film.watched_at), "2026-08-01")
 
     def test_garbage_rating_ignored(self):
-        self.login()
         for raw in ("0", "11", "9.5", "ten"):
             self.client.post(f"/film/{self.film.pk}/rate/", {"rating": raw})
         self.film.refresh_from_db()
         self.assertIsNone(self.film.rating)
 
     def test_day_first_date_format_accepted(self):
-        self.login()
         self.client.post(f"/film/{self.film.pk}/rate/",
                          {"rating": "keep", "watched_at": "20.08.2026"})
         self.film.refresh_from_db()
         self.assertEqual(str(self.film.watched_at), "2026-08-20")
 
     def test_bad_date_reports_error_but_saves_rating(self):
-        self.login()
         response = self.client.post(
             f"/film/{self.film.pk}/rate/",
             {"rating": "6", "watched_at": "not-a-date"}, follow=True,
@@ -179,7 +155,6 @@ class RateFilmTests(TestCase):
         self.assertContains(response, "Could not read the date")
 
     def test_save_shows_confirmation_message(self):
-        self.login()
         response = self.client.post(
             f"/film/{self.film.pk}/rate/", {"rating": "8"}, follow=True,
         )

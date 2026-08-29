@@ -1,7 +1,6 @@
 """Views are glue: stats + charts + template. No logic lives here."""
 
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import Http404
@@ -95,10 +94,9 @@ def film_detail(request, pk):
     return render(request, "films/film_detail.html", context)
 
 
-@staff_member_required
 def rate_film(request, pk):
-    """Inline rating from the film card. Reuses the admin session — the
-    site itself still has no accounts."""
+    """Inline rating from the film card. Open like the batch page: the
+    site has no accounts, and /add/ already writes the same two fields."""
     film = get_object_or_404(Film, pk=pk)
     if request.method == "POST":
         raw = request.POST.get("rating", "")
