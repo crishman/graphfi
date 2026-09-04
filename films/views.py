@@ -24,7 +24,14 @@ SORTS = {
 
 def profile(request):
     axis = "watched" if request.GET.get("axis") == "watched" else "year"
-    people = [stats.people_for_role(role) for role in stats.ROLE_ORDER]
+    # The profile carries the survey's spine — features — for the sliced
+    # roles; shorts and animation are one link away.
+    people = [
+        stats.people_for_role(
+            role, form=stats.FORM_FEATURE if role in stats.SPLIT_ROLES else None
+        )
+        for role in stats.ROLE_ORDER
+    ]
     context = {
         "overview": stats.overview(),
         "rail": mark_safe(charts.rail_svg(stats.rail_years())),
@@ -130,8 +137,13 @@ def people(request):
     role = request.GET.get("role", Credit.Role.ACTOR)
     if role not in Credit.Role.values:
         raise Http404("Unknown role")
+    form = None
+    if role in stats.SPLIT_ROLES:
+        form = request.GET.get("form", stats.FORM_FEATURE)
+        if form not in stats.FORM_ORDER:
+            raise Http404("Unknown film form")
     context = {
-        "table": stats.people_for_role(role),
+        "table": stats.people_for_role(role, form=form),
         "roles": [(r, stats.ROLE_LABELS[r]) for r in stats.ROLE_ORDER],
         "role": role,
     }

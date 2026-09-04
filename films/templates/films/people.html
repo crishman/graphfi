@@ -5,14 +5,21 @@
 {% block content %}
 <h1>People</h1>
 
-<nav class="site-nav" style="margin-bottom:1rem">
+<nav class="site-nav" style="margin-bottom:{% if table.forms %}0.4rem{% else %}1rem{% endif %}">
   {% for r, label in roles %}
     <a href="?role={{ r }}" {% if r == role %}style="color:var(--amber)"{% endif %}>{{ label }}s</a>
   {% endfor %}
 </nav>
+{% if table.forms %}
+<nav class="site-nav form-nav" style="margin-bottom:1rem">
+  {% for f, label in table.forms %}
+    <a href="?role={{ role }}&amp;form={{ f }}" {% if f == table.form %}style="color:var(--amber)"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
 
 <section class="panel">
-  <h2>{{ table.label }}s</h2>
+  <h2>{{ table.label }}s{% if table.form %} — {{ table.form_label|lower }}{% endif %}</h2>
   <table class="people-table">
     <thead><tr><th></th><th>Name</th><th class="num-col">Films</th><th class="num-col">Avg</th></tr></thead>
     <tbody>

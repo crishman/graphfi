@@ -21,6 +21,11 @@
       {{ block.count }} film{{ block.count|pluralize }}{% if block.avg %}, avg {{ block.avg|floatformat:1 }}{% endif %}
     </span>
   </h2>
+  {% if block.forms %}
+  <p class="hint form-breakdown">
+    {% for f in block.forms %}{{ f.label|lower }} <span class="num">{{ f.count }}{% if f.avg %}, avg {{ f.avg|floatformat:1 }}{% endif %}</span>{% if not forloop.last %} · {% endif %}{% endfor %}
+  </p>
+  {% endif %}
   <table>
     <thead><tr><th class="num-col">Year</th><th>Film</th>{% if block.role == "act" %}<th>Character</th>{% endif %}<th class="num-col">Rating</th></tr></thead>
     <tbody>

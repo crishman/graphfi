@@ -66,6 +66,32 @@ class ViewTests(TestCase):
         self.assertContains(response, "Charlie Chaplin")
         self.assertEqual(self.client.get("/people/?role=hack").status_code, 404)
 
+    def test_people_form_tabs_for_sliced_roles(self):
+        # The Kid has no runtime, so it is a feature; the default view is
+        # the features table and the other two forms are one click away.
+        response = self.client.get("/people/?role=dir")
+        self.assertContains(response, "Directors — features")
+        self.assertContains(response, "?role=dir&amp;form=short")
+        self.assertContains(response, "?role=dir&amp;form=animation")
+        response = self.client.get("/people/?role=dir&form=short")
+        self.assertContains(response, "Directors — shorts")
+        self.assertNotContains(response, "Charlie Chaplin")
+        self.assertEqual(self.client.get("/people/?role=dir&form=epic").status_code, 404)
+
+    def test_people_unsliced_roles_ignore_form(self):
+        response = self.client.get("/people/?role=comp&form=epic")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<h2>Composers</h2>", html=False)
+        self.assertNotContains(response, "form-nav")
+
+    def test_profile_links_other_forms_for_sliced_roles_only(self):
+        Credit.objects.create(film=self.kid, person=self.chaplin, role="comp")
+        response = self.client.get("/")
+        self.assertContains(response, "/people/?role=dir&amp;form=short")
+        self.assertContains(response, "/people/?role=dir&amp;form=animation")
+        self.assertContains(response, 'href="/people/?role=comp"')
+        self.assertNotContains(response, "/people/?role=comp&amp;form=")
+
     def test_people_below_threshold_shown_open_when_no_ranked(self):
         # Chaplin has one rated film — below the default threshold of 3 —
         # so the ranked table is empty and the rest list must be visible.
