@@ -148,3 +148,8 @@ TMDB_API_KEY = os.environ.get('TMDB_API_KEY', '')
 # People with fewer watched films than this go into a collapsed block:
 # an average over one film is noise, not signal.
 MIN_FILMS_FOR_RANKING = 3
+
+# A film at or under this runtime is a short (the Academy's 40-minute
+# rule). Actor, director and cinematographer tables are sliced by form so
+# two-reelers and cartoons do not outvote features.
+SHORT_FILM_MAX_MINUTES = 40

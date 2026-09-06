@@ -1,7 +1,6 @@
 """Views are glue: stats + charts + template. No logic lives here."""
 
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import Http404
@@ -25,7 +24,14 @@ SORTS = {
 
 def profile(request):
     axis = "watched" if request.GET.get("axis") == "watched" else "year"
-    people = [stats.people_for_role(role) for role in stats.ROLE_ORDER]
+    # The profile carries the survey's spine — features — for the sliced
+    # roles; shorts and animation are one link away.
+    people = [
+        stats.people_for_role(
+            role, form=stats.FORM_FEATURE if role in stats.SPLIT_ROLES else None
+        )
+        for role in stats.ROLE_ORDER
+    ]
     context = {
         "overview": stats.overview(),
         "rail": mark_safe(charts.rail_svg(stats.rail_years())),
@@ -95,10 +101,9 @@ def film_detail(request, pk):
     return render(request, "films/film_detail.html", context)
 
 
-@staff_member_required
 def rate_film(request, pk):
-    """Inline rating from the film card. Reuses the admin session — the
-    site itself still has no accounts."""
+    """Inline rating from the film card. Open like the batch page: the
+    site has no accounts, and /add/ already writes the same two fields."""
     film = get_object_or_404(Film, pk=pk)
     if request.method == "POST":
         raw = request.POST.get("rating", "")
@@ -132,8 +137,13 @@ def people(request):
     role = request.GET.get("role", Credit.Role.ACTOR)
     if role not in Credit.Role.values:
         raise Http404("Unknown role")
+    form = None
+    if role in stats.SPLIT_ROLES:
+        form = request.GET.get("form", stats.FORM_FEATURE)
+        if form not in stats.FORM_ORDER:
+            raise Http404("Unknown film form")
     context = {
-        "table": stats.people_for_role(role),
+        "table": stats.people_for_role(role, form=form),
         "roles": [(r, stats.ROLE_LABELS[r]) for r in stats.ROLE_ORDER],
         "role": role,
     }

@@ -78,6 +78,10 @@ runs everything in a transaction and rolls it back.
 - **People** — actors, directors, cinematographers, composers, writers: film
   count and average rating each. People with fewer than three films are
   collapsed separately: an average over one film is noise, not signal.
+  Actors, directors and cinematographers are sliced by film form —
+  features, shorts (40 minutes or under), animation — so a run of
+  two-reelers or cartoons does not outvote features. The form is derived
+  from the genre and runtime every time; nothing extra is stored.
 
 ## Tests
 
@@ -94,6 +98,7 @@ commands.
 
 `graphfi/settings.py`:
 - `MIN_FILMS_FOR_RANKING` — threshold for the main people ranking (default 3)
+- `SHORT_FILM_MAX_MINUTES` — runtime at or under which a film is a short (default 40)
 - `TMDB_API_KEY` — read from the environment
 
 `films/genres.py` — the closed genre vocabulary and the per-film tag limit.

@@ -69,6 +69,14 @@ a:hover { color: var(--amber); text-decoration-color: var(--amber); }
 .site-nav { display: flex; gap: 1.1rem; flex-wrap: wrap; }
 .site-nav a { text-decoration: none; color: var(--muted); }
 .site-nav a:hover { color: var(--amber); }
+/* Second nav row on /people/: the film form under the role tabs. */
+.form-nav { font-size: 0.9rem; }
+/* Inline links to the other forms beside a profile table heading. */
+.form-links { font-weight: 400; font-size: 0.85rem; }
+.form-links a { color: var(--muted); }
+.form-links a:hover { color: var(--amber); }
+/* Per-form line under a person's role heading. */
+.form-breakdown { margin: -0.4rem 0 0.6rem; }
 
 main { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 3rem; }
 

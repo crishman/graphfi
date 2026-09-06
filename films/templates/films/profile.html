@@ -53,7 +53,10 @@
     {% for table in people_tables %}
       {% if table.ranked or table.rest %}
       <div class="people-block">
-        <h3><a href="/people/?role={{ table.role }}">{{ table.label }}s</a></h3>
+        <h3><a href="/people/?role={{ table.role }}">{{ table.label }}s</a>{% if table.form %}
+          <span class="hint form-links"> — {{ table.form_label|lower }} ·
+            {% for f, label in table.forms %}{% if f != table.form %}<a href="/people/?role={{ table.role }}&amp;form={{ f }}">{{ label|lower }}</a> {% endif %}{% endfor %}
+          </span>{% endif %}</h3>
         <table class="people-table">
           <thead><tr><th></th><th>Name</th><th class="num-col">Films</th><th class="num-col">Avg</th></tr></thead>
           <tbody>

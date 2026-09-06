@@ -6,7 +6,7 @@ ORM, so everything a chart needs must be computed here.
 """
 
 from django.conf import settings
-from django.db.models import Avg, Count, Max, Min
+from django.db.models import Avg, Count, Max, Min, Q
 
 from .models import Credit, Film, Person
 
@@ -20,6 +20,39 @@ ROLE_ORDER = [
 ]
 
 ROLE_LABELS = dict(Credit.Role.choices)
+
+# Film form. The same credit means something different in a feature, a
+# two-reeler and a cartoon, so the tables for these roles are sliced by it.
+# Derived from genre and runtime every time — nothing is stored.
+FORM_FEATURE, FORM_SHORT, FORM_ANIMATION = "feature", "short", "animation"
+FORM_ORDER = [FORM_FEATURE, FORM_SHORT, FORM_ANIMATION]
+FORM_LABELS = {FORM_FEATURE: "Features", FORM_SHORT: "Shorts", FORM_ANIMATION: "Animation"}
+SPLIT_ROLES = {Credit.Role.DIRECTOR, Credit.Role.ACTOR, Credit.Role.CINEMATOGRAPHER}
+
+
+def film_form(film):
+    """Animation wins over length; an unknown runtime counts as a feature.
+    Mirrors films_of_form — the tests check the two agree."""
+    if any(g.slug == "animation" for g in film.genres.all()):
+        return FORM_ANIMATION
+    if film.runtime is not None and film.runtime <= settings.SHORT_FILM_MAX_MINUTES:
+        return FORM_SHORT
+    return FORM_FEATURE
+
+
+def films_of_form(form):
+    """The rule of film_form as a queryset, for slicing people tables."""
+    animated = Film.objects.filter(genres__slug="animation")
+    if form == FORM_ANIMATION:
+        return animated
+    rest = Film.objects.exclude(genres__slug="animation")
+    if form == FORM_SHORT:
+        return rest.filter(runtime__lte=settings.SHORT_FILM_MAX_MINUTES)
+    if form == FORM_FEATURE:
+        return rest.filter(
+            Q(runtime__gt=settings.SHORT_FILM_MAX_MINUTES) | Q(runtime__isnull=True)
+        )
+    raise ValueError(f"Unknown film form {form!r}")
 
 
 def overview():
@@ -149,14 +182,18 @@ def genre_decade_matrix():
     return {"decades": decades, "rows": rows}
 
 
-def people_for_role(role, min_films=None):
+def people_for_role(role, min_films=None, form=None):
     """Ranked people for one role, split at the ranking threshold: an
     average over one or two films is noise, so the short tail goes into a
-    collapsed block instead of burying the real top."""
+    collapsed block instead of burying the real top. With a form, only
+    credits on films of that form count."""
     if min_films is None:
         min_films = settings.MIN_FILMS_FOR_RANKING
+    filters = {"credits__role": role, "credits__film__rating__isnull": False}
+    if form is not None:
+        filters["credits__film__in"] = films_of_form(form)
     qs = (
-        Person.objects.filter(credits__role=role, credits__film__rating__isnull=False)
+        Person.objects.filter(**filters)
         .annotate(
             film_count=Count("credits__film", distinct=True),
             avg_rating=Avg("credits__film__rating"),
@@ -174,38 +211,59 @@ def people_for_role(role, min_films=None):
         }
         (ranked if person.film_count >= min_films else rest).append(entry)
     return {"role": role, "label": ROLE_LABELS[role], "ranked": ranked,
-            "rest": rest, "min_films": min_films}
+            "rest": rest, "min_films": min_films,
+            "form": form, "form_label": FORM_LABELS.get(form),
+            "forms": [(f, FORM_LABELS[f]) for f in FORM_ORDER] if form else []}
+
+
+def _summary(credits):
+    ratings = [c.film.rating for c in credits if c.film.rating is not None]
+    return {"count": len(credits),
+            "avg": sum(ratings) / len(ratings) if ratings else None}
 
 
 def person_roles(person):
-    """The person's films grouped by role, with a per-role average."""
+    """The person's films grouped by role, with a per-role average. For the
+    sliced roles, a per-form breakdown too — but only when the person
+    actually spans more than one form."""
     blocks = []
     for role in ROLE_ORDER:
         credits = list(
             person.credits.filter(role=role)
             .select_related("film")
+            .prefetch_related("film__genres")
             .order_by("film__year", "film__title")
         )
         if not credits:
             continue
-        ratings = [c.film.rating for c in credits if c.film.rating is not None]
+        by_form = {}
+        if role in SPLIT_ROLES:
+            for credit in credits:
+                by_form.setdefault(film_form(credit.film), []).append(credit)
         blocks.append({
             "role": role,
             "label": ROLE_LABELS[role],
             "credits": credits,
-            "count": len(credits),
-            "avg": sum(ratings) / len(ratings) if ratings else None,
+            **_summary(credits),
+            "forms": [
+                {"form": f, "label": FORM_LABELS[f], **_summary(by_form[f])}
+                for f in FORM_ORDER if f in by_form
+            ] if len(by_form) > 1 else [],
         })
     return blocks
 
 
 def film_credits(film):
-    """The film's credits grouped by role, in display order."""
+    """The film's credits grouped by role, in display order. In a cartoon
+    the cast is voices, and the label says so."""
+    labels = dict(ROLE_LABELS)
+    if film_form(film) == FORM_ANIMATION:
+        labels[Credit.Role.ACTOR] = "Voice actor"
     by_role = {}
     for credit in film.credits.select_related("person").order_by("billing", "id"):
         by_role.setdefault(credit.role, []).append(credit)
     return [
-        {"role": role, "label": ROLE_LABELS[role], "credits": by_role[role]}
+        {"role": role, "label": labels[role], "credits": by_role[role]}
         for role in ROLE_ORDER
         if role in by_role
     ]

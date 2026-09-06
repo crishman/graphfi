@@ -37,7 +37,6 @@
         {% if film.imdb_id %} <a href="https://www.imdb.com/title/{{ film.imdb_id }}/" rel="noopener">IMDb</a>{% endif %}
       </dd>
       {% endif %}
-      {% if user.is_staff %}
       <dt>Rate</dt>
       <dd>
         <form method="post" action="/film/{{ film.pk }}/rate/" class="rate-form">
@@ -62,7 +61,6 @@
           </span>
         </form>
       </dd>
-      {% endif %}
     </dl>
     {% if film.note %}
     <h2>Note</h2>
