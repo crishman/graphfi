@@ -1,0 +1,8 @@
+# Deploy-only, on top of requirements.txt. The plan's two-dependency budget
+# covers what the application imports at runtime in development; these two are
+# infrastructure for running it outside the development server, and README
+# already names WhiteNoise as the intended way to serve static files.
+#
+#   .venv/bin/pip install -r requirements-deploy.txt
+gunicorn>=23.0
+whitenoise>=6.6

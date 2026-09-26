@@ -1,0 +1,26 @@
+# Optional: keep graphfi running in the background and start it with the
+# session, instead of holding a terminal.
+#
+#   mkdir -p ~/.config/systemd/user
+#   sed "s|/path/to/graphfi|$PWD|" deploy/graphfi.service > ~/.config/systemd/user/graphfi.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now graphfi
+#   systemctl --user status graphfi ; journalctl --user -u graphfi -f
+#
+# On WSL this needs systemd enabled (`[boot] systemd=true` in /etc/wsl.conf);
+# `ps -p 1 -o comm=` printing "systemd" means it is. `loginctl enable-linger
+# $USER` additionally starts it without a login shell open.
+
+[Unit]
+Description=graphfi — personal film journal
+After=network.target
+
+[Service]
+Type=exec
+WorkingDirectory=/path/to/graphfi
+ExecStart=/path/to/graphfi/deploy/run-local.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

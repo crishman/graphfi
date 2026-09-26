@@ -4,6 +4,7 @@ __pycache__/
 venv/
 db.sqlite3
 .env
+.secret_key
 .DS_Store
 staticfiles/
 graphfi-plan.md

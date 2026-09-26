@@ -134,6 +134,26 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Where `collectstatic` puts the files for a run with DEBUG off. Build output,
+# gitignored.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# With DEBUG off Django serves nothing under STATIC_URL by itself, so a local
+# production run needs WhiteNoise (requirements-deploy.txt). Kept optional on
+# purpose: requirements.txt stays at its two dependencies, CI installs neither,
+# and behind nginx this middleware is not wanted either. deploy/run-local.sh
+# refuses to start without it, so an unstyled page cannot reach a browser.
+if not DEBUG:
+    try:
+        import whitenoise  # noqa: F401
+    except ImportError:
+        pass
+    else:
+        MIDDLEWARE.insert(
+            MIDDLEWARE.index('django.middleware.security.SecurityMiddleware') + 1,
+            'whitenoise.middleware.WhiteNoiseMiddleware',
+        )
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

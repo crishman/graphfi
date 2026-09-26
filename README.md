@@ -23,6 +23,34 @@ python manage.py runserver
 - `http://127.0.0.1:8000/add/` — batch add
 - `http://127.0.0.1:8000/admin/` — edit everything
 
+## Running it properly on this machine
+
+The block above is Django's development server. To run graphfi the way it
+should run outside development — `DEBUG` off, a generated `SECRET_KEY`, static
+files actually served, gunicorn instead of `runserver`:
+
+```bash
+.venv/bin/pip install -r requirements-deploy.txt   # gunicorn + whitenoise
+deploy/run-local.sh                                # http://127.0.0.1:8000/
+```
+
+The script generates `.secret_key` on first run (gitignored, never printed),
+copies the database into `backups/` if any migration is unapplied, runs
+`collectstatic`, then starts gunicorn on 127.0.0.1 with one worker — SQLite
+locks the whole file for a write, and one reader is all this journal has.
+
+`PORT=9000` and `HOST=0.0.0.0` override the defaults; anything but 127.0.0.1
+also needs the host name in `DJANGO_ALLOWED_HOSTS`. Note before opening it to a
+network: `/add/` and the rating widget have no login, so everyone who can reach
+the page can add films and overwrite ratings.
+
+`deploy/graphfi.service` is a systemd user unit for keeping it running in the
+background; its header carries the three commands to install it.
+
+In this configuration `manage.py check --deploy` reports four warnings, all of
+them about HTTPS and secure cookies — a plain-HTTP localhost run cannot satisfy
+them, and they become real on the day this moves to a domain.
+
 ## How to use it
 
 **1. Dump in a list.** On `/add/` paste lines like
@@ -106,9 +134,14 @@ After editing the vocabulary run `python manage.py seed_genres`.
 
 ## Before publishing anywhere
 
-`DEBUG=False`, `SECRET_KEY` from the environment (`DJANGO_SECRET_KEY`),
-`ALLOWED_HOSTS` (`DJANGO_ALLOWED_HOSTS`), static files via whitenoise or
-nginx. SQLite will hold up fine there for a single user.
+`deploy/run-local.sh` already sets `DEBUG=False`, a real `SECRET_KEY`
+(`DJANGO_SECRET_KEY`), `ALLOWED_HOSTS` (`DJANGO_ALLOWED_HOSTS`) and whitenoise
+for static files, so a domain needs three things on top of it: TLS in front
+(nginx or the platform), `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`,
+`CSRF_COOKIE_SECURE` and `SECURE_HSTS_SECONDS` switched on once HTTPS holds,
+and a login on `/add/` and `/film/<id>/rate/`, which are open to whoever can
+reach them. SQLite will hold up fine there for a single user, but it must sit
+on a disk that survives a redeploy.
 
 ## Structure
 
