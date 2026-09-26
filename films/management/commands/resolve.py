@@ -46,6 +46,16 @@ class Command(BaseCommand):
     # -- one film ---------------------------------------------------------
 
     def resolve_film(self, film, api_key, auto):
+        if film.tmdb_id is not None:
+            # Already linked (--force or --id): refresh from the stored id.
+            # Searching again could pick another candidate and silently
+            # relink the film to a different TMDB entry.
+            data = resolver.fetch_movie(film.tmdb_id, api_key)
+            self.apply_film(film, data)
+            self.apply_wikidata(film)
+            self.stdout.write(f"{film}: refreshed (tmdb {film.tmdb_id}).")
+            return True
+
         candidates = resolver.search_movie(film.title, film.year, api_key)
         if not candidates and film.original_title:
             candidates = resolver.search_movie(film.original_title, film.year, api_key)
@@ -152,11 +162,12 @@ class Command(BaseCommand):
                 tmdb_id=data.tmdb_id,
                 wikidata_id=data.wikidata_id,
                 photo_url=data.photo_url,
+                gender=data.gender,
             )
         if person.tmdb_id is None and data.tmdb_id:
             if not Person.objects.filter(tmdb_id=data.tmdb_id).exclude(pk=person.pk).exists():
                 person.tmdb_id = data.tmdb_id
-        for attr in ("original_name", "wikidata_id", "photo_url"):
+        for attr in ("original_name", "wikidata_id", "photo_url", "gender"):
             if not getattr(person, attr) and getattr(data, attr):
                 setattr(person, attr, getattr(data, attr))
         person.save()

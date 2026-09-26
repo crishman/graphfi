@@ -233,3 +233,84 @@ class FilmFormTests(TestCase):
         # Disney spans one form only — no breakdown line.
         blocks = {b["role"]: b for b in stats.person_roles(self.disney)}
         self.assertEqual(blocks["act"]["forms"], [])
+
+
+class CastSplitTests(TestCase):
+    """Only the feature cast splits into actors and actresses; shorts,
+    animation and every other role keep one table, as before."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_genres", verbosity=0)
+        g = {x.slug: x for x in Genre.objects.all()}
+
+        def film(title, runtime, rating, genres=("comedy",)):
+            obj = Film.objects.create(title=title, year=1925, runtime=runtime, rating=rating)
+            obj.genres.set([g[s] for s in genres])
+            return obj
+
+        cls.feature = film("The Gold Rush", 95, 8)
+        cls.feature2 = film("A Woman of Paris", 82, 6)
+        cls.short = film("The Idle Class", 32, 7)
+        cls.cartoon = film("Alice Cartoon", 8, 9, ("animation",))
+
+        P = Person.Gender
+        cls.chaplin = Person.objects.create(name="Charlie Chaplin", gender=P.MALE)
+        cls.edna = Person.objects.create(name="Edna Purviance", gender=P.FEMALE)
+        cls.unknown = Person.objects.create(name="Unknown Extra")
+        cls.nb = Person.objects.create(name="Someone Nonbinary", gender=P.NON_BINARY)
+        cls.short_only = Person.objects.create(name="Short Only Extra")
+        cls.lois = Person.objects.create(name="Lois Weber", gender=P.FEMALE)
+
+        act = lambda f, p: Credit.objects.create(film=f, person=p, role="act")
+        act(cls.feature, cls.chaplin)
+        act(cls.feature, cls.edna)
+        act(cls.feature, cls.unknown)
+        act(cls.feature2, cls.edna)
+        act(cls.feature2, cls.nb)
+        act(cls.short, cls.chaplin)
+        act(cls.short, cls.edna)
+        act(cls.short, cls.short_only)
+        act(cls.cartoon, cls.edna)
+        Credit.objects.create(film=cls.feature, person=cls.chaplin, role="dir")
+        Credit.objects.create(film=cls.feature2, person=cls.lois, role="dir")
+
+    @staticmethod
+    def names(table):
+        return {p["name"] for p in table["ranked"] + table["rest"]}
+
+    def test_feature_cast_splits_into_actors_and_actresses(self):
+        actors, actresses = stats.people_tables("act", "feature")
+        self.assertEqual((actors["title"], actresses["title"]), ("Actors", "Actresses"))
+        self.assertEqual(self.names(actors), {"Charlie Chaplin"})
+        self.assertEqual(self.names(actresses), {"Edna Purviance"})
+        edna = actresses["rest"][0]
+        self.assertEqual(edna["count"], 2)                  # features only
+        self.assertAlmostEqual(edna["avg"], 7)
+        self.assertEqual(actresses["form"], "feature")      # still carries the form row
+
+    def test_shorts_and_animation_keep_one_mixed_table(self):
+        (shorts,) = stats.people_tables("act", "short")
+        self.assertEqual(shorts["title"], "Actors")
+        self.assertEqual(self.names(shorts), {"Charlie Chaplin", "Edna Purviance", "Short Only Extra"})
+        (cartoons,) = stats.people_tables("act", "animation")
+        self.assertEqual(self.names(cartoons), {"Edna Purviance"})
+
+    def test_other_roles_untouched(self):
+        (directors,) = stats.people_tables("dir", "feature")
+        self.assertEqual(directors["title"], "Directors")
+        self.assertEqual(self.names(directors), {"Charlie Chaplin", "Lois Weber"})
+        (composers,) = stats.people_tables("comp")
+        self.assertEqual(composers["title"], "Composers")
+
+    def test_cast_outside_split_lists_feature_actors_only(self):
+        names = [p.name for p in stats.cast_outside_split()]
+        self.assertEqual(names, ["Someone Nonbinary", "Unknown Extra"])   # not the short-only extra
+
+    def test_person_page_says_actress(self):
+        labels = {b["role"]: b["label"] for b in stats.person_roles(self.edna)}
+        self.assertEqual(labels["act"], "Actress")
+        labels = {b["role"]: b["label"] for b in stats.person_roles(self.chaplin)}
+        self.assertEqual(labels, {"dir": "Director", "act": "Actor"})
+        labels = {b["role"]: b["label"] for b in stats.person_roles(self.unknown)}
+        self.assertEqual(labels["act"], "Actor")

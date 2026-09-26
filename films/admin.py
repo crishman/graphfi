@@ -50,7 +50,8 @@ class FilmAdmin(admin.ModelAdmin):
 
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):
-    list_display = ["name", "original_name", "birth_year", "death_year", "tmdb_id"]
+    list_display = ["name", "original_name", "birth_year", "death_year", "gender", "tmdb_id"]
+    list_filter = ["gender"]
     search_fields = ["name", "original_name"]
 
 

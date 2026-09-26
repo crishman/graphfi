@@ -23,7 +23,8 @@ def tmdb_payload(**overrides):
         "credits": {
             "cast": [
                 {"id": i, "name": f"Actor {i}", "character": f"Char {i}",
-                 "order": i, "profile_path": "/p.jpg" if i % 2 else None}
+                 "order": i, "profile_path": "/p.jpg" if i % 2 else None,
+                 "gender": i % 4}
                 for i in range(15)
             ],
             "crew": [
@@ -61,6 +62,16 @@ class FilmFromPayloadTests(SimpleTestCase):
         self.assertEqual(len(actors), 12)
         self.assertEqual(actors[0].billing, 0)
         self.assertEqual(actors[0].character, "Char 0")
+
+    def test_person_gender_kept_and_unset_dropped(self):
+        data = resolver.film_from_payload(tmdb_payload())
+        genders = {c.person.tmdb_id: c.person.gender for c in data.credits if c.role == "act"}
+        self.assertIsNone(genders[0])       # TMDB 0 = not set
+        self.assertEqual(genders[1], 1)     # female
+        self.assertEqual(genders[2], 2)     # male
+        self.assertEqual(genders[3], 3)     # non-binary
+        director = next(c for c in data.credits if c.role == "dir")
+        self.assertIsNone(director.person.gender)   # field absent
 
     def test_crew_roles_mapped_and_deduplicated(self):
         data = resolver.film_from_payload(tmdb_payload())

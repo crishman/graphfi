@@ -29,6 +29,12 @@ FORM_ORDER = [FORM_FEATURE, FORM_SHORT, FORM_ANIMATION]
 FORM_LABELS = {FORM_FEATURE: "Features", FORM_SHORT: "Shorts", FORM_ANIMATION: "Animation"}
 SPLIT_ROLES = {Credit.Role.DIRECTOR, Credit.Role.ACTOR, Credit.Role.CINEMATOGRAPHER}
 
+# The feature cast alone is split into actors and actresses. Shorts,
+# animation and every other role keep one table each — the owner's call.
+CAST_GENDERS = [Person.Gender.MALE, Person.Gender.FEMALE]
+CAST_LABELS = {Person.Gender.MALE: ("Actor", "Actors"),
+               Person.Gender.FEMALE: ("Actress", "Actresses")}
+
 
 def film_form(film):
     """Animation wins over length; an unknown runtime counts as a feature.
@@ -182,16 +188,19 @@ def genre_decade_matrix():
     return {"decades": decades, "rows": rows}
 
 
-def people_for_role(role, min_films=None, form=None):
+def people_for_role(role, min_films=None, form=None, gender=None):
     """Ranked people for one role, split at the ranking threshold: an
     average over one or two films is noise, so the short tail goes into a
     collapsed block instead of burying the real top. With a form, only
-    credits on films of that form count."""
+    credits on films of that form count; with a gender, only people of it."""
     if min_films is None:
         min_films = settings.MIN_FILMS_FOR_RANKING
     filters = {"credits__role": role, "credits__film__rating__isnull": False}
     if form is not None:
         filters["credits__film__in"] = films_of_form(form)
+    if gender is not None:
+        filters["gender"] = gender
+    label, title = CAST_LABELS.get(gender, (ROLE_LABELS[role], f"{ROLE_LABELS[role]}s"))
     qs = (
         Person.objects.filter(**filters)
         .annotate(
@@ -210,10 +219,35 @@ def people_for_role(role, min_films=None, form=None):
             "avg": person.avg_rating,
         }
         (ranked if person.film_count >= min_films else rest).append(entry)
-    return {"role": role, "label": ROLE_LABELS[role], "ranked": ranked,
+    return {"role": role, "label": label, "title": title, "ranked": ranked,
             "rest": rest, "min_films": min_films,
             "form": form, "form_label": FORM_LABELS.get(form),
             "forms": [(f, FORM_LABELS[f]) for f in FORM_ORDER] if form else []}
+
+
+def splits_by_gender(role, form):
+    return role == Credit.Role.ACTOR and form == FORM_FEATURE
+
+
+def people_tables(role, form=None):
+    """The tables for one role and form: the feature cast as actors and
+    actresses, everything else as the single table it always was."""
+    if splits_by_gender(role, form):
+        return [people_for_role(role, form=form, gender=g) for g in CAST_GENDERS]
+    return [people_for_role(role, form=form)]
+
+
+def cast_outside_split():
+    """Rated-feature actors in neither split table — no gender on record,
+    or non-binary — listed so that nobody silently drops out."""
+    return list(
+        Person.objects.filter(
+            Q(gender__isnull=True) | Q(gender=Person.Gender.NON_BINARY),
+            credits__role=Credit.Role.ACTOR,
+            credits__film__rating__isnull=False,
+            credits__film__in=films_of_form(FORM_FEATURE),
+        ).distinct().order_by("name")
+    )
 
 
 def _summary(credits):
@@ -240,9 +274,12 @@ def person_roles(person):
         if role in SPLIT_ROLES:
             for credit in credits:
                 by_form.setdefault(film_form(credit.film), []).append(credit)
+        label = ROLE_LABELS[role]
+        if role == Credit.Role.ACTOR and person.gender in CAST_LABELS:
+            label = CAST_LABELS[person.gender][0]
         blocks.append({
             "role": role,
-            "label": ROLE_LABELS[role],
+            "label": label,
             "credits": credits,
             **_summary(credits),
             "forms": [

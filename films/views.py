@@ -27,10 +27,11 @@ def profile(request):
     # The profile carries the survey's spine — features — for the sliced
     # roles; shorts and animation are one link away.
     people = [
-        stats.people_for_role(
+        table
+        for role in stats.ROLE_ORDER
+        for table in stats.people_tables(
             role, form=stats.FORM_FEATURE if role in stats.SPLIT_ROLES else None
         )
-        for role in stats.ROLE_ORDER
     ]
     context = {
         "overview": stats.overview(),
@@ -142,8 +143,12 @@ def people(request):
         form = request.GET.get("form", stats.FORM_FEATURE)
         if form not in stats.FORM_ORDER:
             raise Http404("Unknown film form")
+    tables = stats.people_tables(role, form=form)
     context = {
-        "table": stats.people_for_role(role, form=form),
+        "tables": tables,
+        "forms": tables[0]["forms"],
+        "form": form,
+        "outside_split": stats.cast_outside_split() if stats.splits_by_gender(role, form) else [],
         "roles": [(r, stats.ROLE_LABELS[r]) for r in stats.ROLE_ORDER],
         "role": role,
     }

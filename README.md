@@ -66,8 +66,13 @@ export TMDB_API_KEY=[API_KEY]
 python manage.py resolve            # asks which candidate is right, film by film
 python manage.py resolve --auto     # no questions, first candidate matching the year
 python manage.py resolve --id 42    # a single film
-python manage.py resolve --force    # including films already linked
+python manage.py resolve --force    # also refresh films already linked
+python manage.py fill_gender        # once, for people resolved before gender was kept
 ```
+
+A film already linked is refreshed from its stored TMDB id and never searched
+again, so `--force` cannot move it to a different TMDB entry. To fix a wrong
+match, clear the film's TMDB id in the admin and resolve it again.
 
 Posters and photos are never downloaded — the database stores only links to
 the TMDB CDN. That is deliberate: other people's images are embedded, not
@@ -110,6 +115,10 @@ runs everything in a transaction and rolls it back.
   features, shorts (40 minutes or under), animation — so a run of
   two-reelers or cartoons does not outvote features. The form is derived
   from the genre and runtime every time; nothing extra is stored.
+  The feature cast alone is split again into actors and actresses, by the
+  gender TMDB records; shorts, animation and the other roles keep one table.
+  Feature actors with no gender on record are listed under both tables
+  rather than dropped, and their gender can be set in the admin.
 
 ## Tests
 

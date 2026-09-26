@@ -20,6 +20,13 @@ class Genre(models.Model):
 
 
 class Person(models.Model):
+    # TMDB's own codes, so the resolver stores what it gets unchanged.
+    # TMDB's 0, "not set", is kept as empty.
+    class Gender(models.IntegerChoices):
+        FEMALE = 1, "Female"
+        MALE = 2, "Male"
+        NON_BINARY = 3, "Non-binary"
+
     name = models.CharField("name", max_length=200)
     original_name = models.CharField("original name", max_length=200, blank=True)
     tmdb_id = models.IntegerField("TMDB id", null=True, blank=True, unique=True)
@@ -28,6 +35,10 @@ class Person(models.Model):
     photo_url = models.URLField("photo URL", blank=True)
     birth_year = models.IntegerField("birth year", null=True, blank=True)
     death_year = models.IntegerField("death year", null=True, blank=True)
+    gender = models.PositiveSmallIntegerField(
+        "gender", choices=Gender.choices, null=True, blank=True,
+        help_text="From TMDB; empty = not recorded there.",
+    )
 
     class Meta:
         ordering = ["name"]

@@ -92,6 +92,37 @@ class ViewTests(TestCase):
         self.assertContains(response, 'href="/people/?role=comp"')
         self.assertNotContains(response, "/people/?role=comp&amp;form=")
 
+    def test_people_feature_cast_split_shorts_not(self):
+        edna = Person.objects.create(name="Edna Purviance", gender=Person.Gender.FEMALE)
+        extra = Person.objects.create(name="Unknown Extra")
+        Credit.objects.create(film=self.kid, person=edna, role="act")
+        Credit.objects.create(film=self.kid, person=extra, role="act")
+        response = self.client.get("/people/?role=act")
+        self.assertContains(response, "Actors — features")
+        self.assertContains(response, "Actresses — features")
+        self.assertContains(response, "Edna Purviance")
+        self.assertContains(response, "In neither table — 1 people")
+        self.assertContains(response, "Unknown Extra")
+        response = self.client.get("/people/?role=act&form=short")
+        self.assertContains(response, "Actors — shorts")
+        self.assertNotContains(response, "Actresses")
+        self.assertNotContains(response, "In neither table")
+        response = self.client.get("/people/?role=dir")
+        self.assertNotContains(response, "Actresses")
+        self.assertNotContains(response, "In neither table")
+
+    def test_profile_shows_actresses_block(self):
+        edna = Person.objects.create(name="Edna Purviance", gender=Person.Gender.FEMALE)
+        Credit.objects.create(film=self.kid, person=edna, role="act")
+        response = self.client.get("/")
+        self.assertContains(response, ">Actresses</a>", html=False)
+        self.assertContains(response, "Edna Purviance")
+
+    def test_person_detail_actress_heading(self):
+        edna = Person.objects.create(name="Edna Purviance", gender=Person.Gender.FEMALE)
+        Credit.objects.create(film=self.kid, person=edna, role="act")
+        self.assertContains(self.client.get(f"/person/{edna.pk}/"), "As actress")
+
     def test_people_below_threshold_shown_open_when_no_ranked(self):
         # Chaplin has one rated film — below the default threshold of 3 —
         # so the ranked table is empty and the rest list must be visible.

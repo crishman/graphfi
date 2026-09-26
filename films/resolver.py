@@ -32,6 +32,10 @@ CREW_JOBS = {
 }
 CAST_LIMIT = 12
 
+# TMDB person gender codes worth keeping (female, male, non-binary); 0 is
+# TMDB's "not set". Same values as Person.Gender.
+TMDB_GENDERS = {1, 2, 3}
+
 # Wikidata properties -> role slugs, for the post-TMDB fill-in.
 WIKIDATA_ROLES = {
     "P57": "dir",
@@ -52,6 +56,7 @@ class PersonData:
     tmdb_id: int | None = None
     wikidata_id: str = ""
     photo_url: str = ""
+    gender: int | None = None
 
 
 @dataclass
@@ -166,11 +171,13 @@ def film_from_payload(payload):
 
 def _person_from_tmdb(member):
     profile_path = member.get("profile_path")
+    gender = member.get("gender")
     return PersonData(
         name=member.get("name", ""),
         original_name=member.get("original_name", "") or "",
         tmdb_id=member.get("id"),
         photo_url=f"{TMDB_IMAGES}/w185{profile_path}" if profile_path else "",
+        gender=gender if gender in TMDB_GENDERS else None,
     )
 
 
