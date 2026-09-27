@@ -54,3 +54,19 @@ TMDB_GENRE_MAP = {
     10752: "war",
     37: "western",
 }
+
+# TMDB's TV genres are a list of their own. The ids shared with films mean
+# the same thing; the TV-only ones fold into the nearest slug, and Kids,
+# News, Reality, Soap and Talk are skipped like Family is for films.
+TMDB_TV_GENRE_MAP = {
+    16: "animation",
+    35: "comedy",
+    80: "crime",
+    99: "documentary",
+    18: "drama",
+    9648: "mystery",
+    37: "western",
+    10759: "adventure",   # Action & Adventure
+    10765: "scifi",       # Sci-Fi & Fantasy
+    10768: "war",         # War & Politics
+}

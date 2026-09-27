@@ -124,3 +124,110 @@ class Credit(models.Model):
 
     def __str__(self):
         return f"{self.person} — {self.get_role_display()} — {self.film}"
+
+
+# TV lives beside the films, never inside them: no film query can pick up a
+# season by accident. People and genres are shared.
+
+
+class Series(models.Model):
+    title = models.CharField("title", max_length=300)
+    original_title = models.CharField("original title", max_length=300, blank=True)
+    first_year = models.IntegerField("first aired", db_index=True)
+    last_year = models.IntegerField("last aired", null=True, blank=True)
+    tmdb_id = models.IntegerField("TMDB id", null=True, blank=True, unique=True)
+    imdb_id = models.CharField("IMDb id", max_length=16, blank=True)
+    wikidata_id = models.CharField("Wikidata id", max_length=32, blank=True)
+    tv_type = models.CharField("TMDB type", max_length=40, blank=True,
+                               help_text="Scripted, Miniseries, … as TMDB has it.")
+    # A link to the TMDB CDN, never a downloaded file — licensing requirement.
+    poster_url = models.URLField("poster URL", blank=True)
+    country = models.CharField("country", max_length=100, blank=True)
+    note = models.TextField("note", blank=True)
+    genres = models.ManyToManyField(Genre, verbose_name="genres", blank=True, related_name="series")
+
+    class Meta:
+        ordering = ["-first_year", "title"]
+        constraints = [
+            models.UniqueConstraint(fields=["title", "first_year"], name="unique_series_title_year"),
+        ]
+        verbose_name = "series"
+        verbose_name_plural = "series"
+
+    def __str__(self):
+        return f"{self.title} ({self.first_year})"
+
+    def clean(self):
+        if self.pk and self.genres.count() > MAX_GENRES_PER_FILM:
+            raise ValidationError(
+                {"genres": f"No more than {MAX_GENRES_PER_FILM} genres per series."}
+            )
+
+
+class Season(models.Model):
+    """The rated unit of TV: a season has its own air year, so it sits on
+    the timeline where it aired — Twin Peaks' third season in 2017, not
+    in 1990. A series' rating is the average of its rated seasons and is
+    never stored."""
+
+    series = models.ForeignKey(
+        Series, verbose_name="series", on_delete=models.CASCADE, related_name="seasons"
+    )
+    number = models.PositiveSmallIntegerField("season")
+    name = models.CharField("name", max_length=200, blank=True)
+    year = models.IntegerField("aired", null=True, blank=True, db_index=True)
+    episode_count = models.PositiveSmallIntegerField("episodes", null=True, blank=True)
+    # A link to the TMDB CDN, never a downloaded file — licensing requirement.
+    poster_url = models.URLField("poster URL", blank=True)
+    rating = models.PositiveSmallIntegerField(
+        "rating",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text="Whole numbers 1–10, empty = not watched yet.",
+    )
+    watched_at = models.DateField("watched on", null=True, blank=True, db_index=True)
+    note = models.TextField("note", blank=True)
+
+    class Meta:
+        ordering = ["series", "number"]
+        constraints = [
+            models.UniqueConstraint(fields=["series", "number"], name="unique_season"),
+        ]
+        verbose_name = "season"
+        verbose_name_plural = "seasons"
+
+    def __str__(self):
+        return f"{self.series.title} — season {self.number}"
+
+
+class SeasonCredit(models.Model):
+    # Same values as Credit.Role where the role exists on both sides, so
+    # labels and people tables line up. Creator is TV's own.
+    class Role(models.TextChoices):
+        DIRECTOR = "dir", "Director"
+        ACTOR = "act", "Actor"
+        CREATOR = "crea", "Creator"
+
+    season = models.ForeignKey(
+        Season, verbose_name="season", on_delete=models.CASCADE, related_name="credits"
+    )
+    person = models.ForeignKey(
+        Person, verbose_name="person", on_delete=models.CASCADE, related_name="season_credits"
+    )
+    role = models.CharField("role", max_length=4, choices=Role.choices)
+    character = models.CharField("character", max_length=200, blank=True)
+    episodes = models.PositiveSmallIntegerField("episodes", null=True, blank=True)
+    billing = models.PositiveSmallIntegerField("billing order", null=True, blank=True)
+
+    class Meta:
+        ordering = ["billing", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["season", "person", "role"], name="unique_season_credit"),
+        ]
+        indexes = [models.Index(fields=["person", "role"])]
+        verbose_name = "season credit"
+        verbose_name_plural = "season credits"
+
+    def __str__(self):
+        return f"{self.person} — {self.get_role_display()} — {self.season}"

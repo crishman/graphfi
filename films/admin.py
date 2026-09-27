@@ -2,7 +2,7 @@ from django import forms
 from django.contrib import admin
 
 from .genres import MAX_GENRES_PER_FILM
-from .models import Credit, Film, Genre, Person
+from .models import Credit, Film, Genre, Person, Season, SeasonCredit, Series
 
 
 class CreditInline(admin.TabularInline):
@@ -70,3 +70,36 @@ class CreditAdmin(admin.ModelAdmin):
     list_filter = ["role"]
     autocomplete_fields = ["film", "person"]
     search_fields = ["film__title", "person__name"]
+
+
+class SeasonInline(admin.TabularInline):
+    model = Season
+    extra = 0
+    fields = ["number", "name", "year", "episode_count", "rating", "watched_at"]
+
+
+@admin.register(Series)
+class SeriesAdmin(admin.ModelAdmin):
+    inlines = [SeasonInline]
+    list_display = ["title", "first_year", "last_year", "tv_type", "tmdb_id"]
+    search_fields = ["title", "original_title"]
+    filter_horizontal = ["genres"]
+
+
+@admin.register(Season)
+class SeasonAdmin(admin.ModelAdmin):
+    list_display = ["series", "number", "year", "episode_count", "rating", "watched_at"]
+    # As for films: a batch of season ratings goes in from the list.
+    list_editable = ["rating", "watched_at"]
+    list_filter = ["rating", "year"]
+    search_fields = ["series__title"]
+    autocomplete_fields = ["series"]
+    list_per_page = 100
+
+
+@admin.register(SeasonCredit)
+class SeasonCreditAdmin(admin.ModelAdmin):
+    list_display = ["season", "person", "role", "character", "episodes"]
+    list_filter = ["role"]
+    autocomplete_fields = ["season", "person"]
+    search_fields = ["season__series__title", "person__name"]

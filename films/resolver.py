@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 import requests
 
-from .genres import MAX_GENRES_PER_FILM, TMDB_GENRE_MAP
+from .genres import MAX_GENRES_PER_FILM, TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP
 
 TMDB_API = "https://api.themoviedb.org/3"
 TMDB_IMAGES = "https://image.tmdb.org/t/p"
@@ -65,6 +65,7 @@ class CreditData:
     role: str
     character: str = ""
     billing: int | None = None
+    episodes: int | None = None
 
 
 @dataclass
@@ -87,6 +88,32 @@ class FilmData:
     country: str = ""
     genre_slugs: list = field(default_factory=list)
     credits: list = field(default_factory=list)
+
+
+@dataclass
+class SeasonInfo:
+    number: int
+    name: str = ""
+    year: int | None = None
+    episode_count: int | None = None
+    poster_url: str = ""
+
+
+@dataclass
+class SeriesData:
+    tmdb_id: int
+    title: str
+    original_title: str = ""
+    first_year: int | None = None
+    last_year: int | None = None
+    tv_type: str = ""
+    imdb_id: str = ""
+    wikidata_id: str = ""
+    poster_url: str = ""
+    country: str = ""
+    genre_slugs: list = field(default_factory=list)
+    seasons: list = field(default_factory=list)
+    creators: list = field(default_factory=list)
 
 
 def _tmdb_get(path, api_key, **params):
@@ -125,15 +152,19 @@ def search_movie(title, year, api_key):
     ]
 
 
+def _genre_slugs(genres, mapping):
+    slugs = []
+    for genre in genres:
+        slug = mapping.get(genre.get("id"))
+        if slug and slug not in slugs:
+            slugs.append(slug)
+    return slugs[:MAX_GENRES_PER_FILM]
+
+
 def film_from_payload(payload):
     """Builds FilmData from a /movie/{id}?append_to_response=credits
     payload. Pure function — the network-free part, tested separately."""
-    genre_slugs = []
-    for genre in payload.get("genres", []):
-        slug = TMDB_GENRE_MAP.get(genre.get("id"))
-        if slug and slug not in genre_slugs:
-            genre_slugs.append(slug)
-    genre_slugs = genre_slugs[:MAX_GENRES_PER_FILM]
+    genre_slugs = _genre_slugs(payload.get("genres", []), TMDB_GENRE_MAP)
 
     countries = payload.get("production_countries") or []
     poster_path = payload.get("poster_path")
@@ -184,6 +215,102 @@ def _person_from_tmdb(member):
 def fetch_movie(tmdb_id, api_key):
     payload = _tmdb_get(f"/movie/{tmdb_id}", api_key, append_to_response="credits")
     return film_from_payload(payload)
+
+
+def search_tv(title, year, api_key):
+    payload = _tmdb_get("/search/tv", api_key, query=title, first_air_date_year=year or "")
+    return [
+        Candidate(
+            tmdb_id=hit["id"],
+            title=hit.get("name", ""),
+            original_title=hit.get("original_name", ""),
+            year=_release_year(hit.get("first_air_date")),
+        )
+        for hit in payload.get("results", [])
+    ]
+
+
+def series_from_payload(payload):
+    """Builds SeriesData from a /tv/{id}?append_to_response=external_ids
+    payload. Season 0 is TMDB's "Specials" — a grab bag with meaningless
+    dates — and is left out. Pure function, tested separately."""
+    countries = payload.get("production_countries") or []
+    poster_path = payload.get("poster_path")
+    external = payload.get("external_ids") or {}
+    seasons = []
+    for season in payload.get("seasons", []):
+        number = season.get("season_number")
+        if not number:
+            continue
+        season_poster = season.get("poster_path")
+        seasons.append(SeasonInfo(
+            number=number,
+            name=season.get("name", "") or "",
+            year=_release_year(season.get("air_date")),
+            episode_count=season.get("episode_count") or None,
+            poster_url=f"{TMDB_IMAGES}/w342{season_poster}" if season_poster else "",
+        ))
+    return SeriesData(
+        tmdb_id=payload["id"],
+        title=payload.get("name", ""),
+        original_title=payload.get("original_name", "") or "",
+        first_year=_release_year(payload.get("first_air_date")),
+        last_year=_release_year(payload.get("last_air_date")),
+        tv_type=payload.get("type", "") or "",
+        imdb_id=external.get("imdb_id") or "",
+        wikidata_id=external.get("wikidata_id") or "",
+        poster_url=f"{TMDB_IMAGES}/w342{poster_path}" if poster_path else "",
+        country=countries[0].get("name", "") if countries else "",
+        genre_slugs=_genre_slugs(payload.get("genres", []), TMDB_TV_GENRE_MAP),
+        seasons=seasons,
+        creators=[_person_from_tmdb(member) for member in payload.get("created_by", [])],
+    )
+
+
+def season_credits_from_payload(payload, episode_count=None):
+    """Regular cast and directors of one season, from a
+    /tv/{id}/season/{n}/aggregate_credits payload.
+
+    A season's cast list is everyone who ever walked through it (The
+    Twilight Zone's first season lists 357), so only people in at least
+    half of the season's episodes count as its cast: that leaves I Love
+    Lucy its four stars and The Twilight Zone its host. Every episode
+    director counts, with the number of episodes kept. Pure function."""
+    cast = payload.get("cast", [])
+    if not episode_count:
+        episode_count = max((m.get("total_episode_count") or 0 for m in cast), default=0)
+    threshold = max(1, episode_count / 2)
+
+    credits = []
+    for member in sorted(cast, key=lambda m: m.get("order", 0)):
+        episodes = member.get("total_episode_count") or 0
+        if episodes < threshold:
+            continue
+        roles = member.get("roles") or []
+        main = max(roles, key=lambda r: r.get("episode_count") or 0) if roles else {}
+        credits.append(CreditData(
+            _person_from_tmdb(member), "act", character=main.get("character", "") or "",
+            billing=member.get("order"), episodes=episodes,
+        ))
+    seen = set()
+    for member in payload.get("crew", []):
+        episodes = sum(job.get("episode_count") or 0
+                       for job in member.get("jobs", []) if job.get("job") == "Director")
+        if not episodes or member.get("id") in seen:
+            continue
+        seen.add(member.get("id"))
+        credits.append(CreditData(_person_from_tmdb(member), "dir", episodes=episodes))
+    return credits
+
+
+def fetch_series(tmdb_id, api_key):
+    payload = _tmdb_get(f"/tv/{tmdb_id}", api_key, append_to_response="external_ids")
+    return series_from_payload(payload)
+
+
+def fetch_season_credits(tmdb_id, number, episode_count, api_key):
+    payload = _tmdb_get(f"/tv/{tmdb_id}/season/{number}/aggregate_credits", api_key)
+    return season_credits_from_payload(payload, episode_count)
 
 
 def _wikidata_query(imdb_id):
