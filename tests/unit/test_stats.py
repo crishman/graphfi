@@ -214,7 +214,9 @@ class FilmFormTests(TestCase):
     def test_people_for_role_form_metadata(self):
         table = stats.people_for_role("act", form="short")
         self.assertEqual(table["form_label"], "Shorts")
-        self.assertEqual([f for f, _ in table["forms"]], ["feature", "short", "animation"])
+        self.assertEqual([f for f, _ in table["forms"]], ["feature", "tv", "short", "animation"])
+        dops = stats.people_for_role("dop", form="short")
+        self.assertEqual([f for f, _ in dops["forms"]], ["feature", "short", "animation"])
 
     def test_film_credits_labels_cartoon_cast_as_voices(self):
         labels = {b["role"]: b["label"] for b in stats.film_credits(self.willie)}

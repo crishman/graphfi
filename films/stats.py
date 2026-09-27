@@ -29,6 +29,19 @@ FORM_ORDER = [FORM_FEATURE, FORM_SHORT, FORM_ANIMATION]
 FORM_LABELS = {FORM_FEATURE: "Features", FORM_SHORT: "Shorts", FORM_ANIMATION: "Animation"}
 SPLIT_ROLES = {Credit.Role.DIRECTOR, Credit.Role.ACTOR, Credit.Role.CINEMATOGRAPHER}
 
+# TV is one more tab in the form row, after features, for actors and
+# directors only. Its table reads series, never films.
+FORM_TV = "tv"
+TV_ROLES = {Credit.Role.DIRECTOR, Credit.Role.ACTOR}
+TAB_LABELS = {**FORM_LABELS, FORM_TV: "TV"}
+
+
+def people_tabs(role):
+    forms = list(FORM_ORDER)
+    if role in TV_ROLES:
+        forms.insert(1, FORM_TV)
+    return [(f, TAB_LABELS[f]) for f in forms]
+
 # The feature cast alone is split into actors and actresses. Shorts,
 # animation and every other role keep one table each — the owner's call.
 CAST_GENDERS = [Person.Gender.MALE, Person.Gender.FEMALE]
@@ -220,9 +233,9 @@ def people_for_role(role, min_films=None, form=None, gender=None):
         }
         (ranked if person.film_count >= min_films else rest).append(entry)
     return {"role": role, "label": label, "title": title, "ranked": ranked,
-            "rest": rest, "min_films": min_films,
+            "rest": rest, "min_films": min_films, "unit": "films",
             "form": form, "form_label": FORM_LABELS.get(form),
-            "forms": [(f, FORM_LABELS[f]) for f in FORM_ORDER] if form else []}
+            "forms": people_tabs(role) if form else []}
 
 
 def splits_by_gender(role, form):
@@ -232,6 +245,8 @@ def splits_by_gender(role, form):
 def people_tables(role, form=None):
     """The tables for one role and form: the feature cast as actors and
     actresses, everything else as the single table it always was."""
+    if form == FORM_TV:
+        return [series_people_for_role(role)]
     if splits_by_gender(role, form):
         return [people_for_role(role, form=form, gender=g) for g in CAST_GENDERS]
     return [people_for_role(role, form=form)]
@@ -370,4 +385,67 @@ def series_credits(series):
             e["seasons"] = season_span(e["numbers"])
         if people:
             blocks.append({"role": role, "label": labels[role], "people": people})
+    return blocks
+
+
+def series_people_for_role(role, min_films=None):
+    """Ranked people for one role on TV, the same table as for films. A
+    series counts once, like a film: the number is how many series the
+    person has a rated season in, the average is the mean over those
+    series of the seasons they are in — seven seasons of one sitcom do
+    not outvote three different series."""
+    if min_films is None:
+        min_films = settings.MIN_FILMS_FOR_RANKING
+    by_person = {}
+    for person_id, series_id, rating in (
+        SeasonCredit.objects.filter(role=role, season__rating__isnull=False)
+        .values_list("person_id", "season__series_id", "season__rating")
+    ):
+        by_person.setdefault(person_id, {}).setdefault(series_id, []).append(rating)
+    people = Person.objects.in_bulk(by_person)
+    entries = []
+    for person_id, series in by_person.items():
+        person = people[person_id]
+        averages = [sum(r) / len(r) for r in series.values()]
+        entries.append({
+            "pk": person.pk, "name": person.name, "photo_url": person.photo_url,
+            "count": len(series), "avg": sum(averages) / len(averages),
+        })
+    entries.sort(key=lambda e: (-e["count"], -e["avg"], e["name"]))
+    label = ROLE_LABELS[role]
+    return {"role": role, "label": label, "title": f"{label}s",
+            "ranked": [e for e in entries if e["count"] >= min_films],
+            "rest": [e for e in entries if e["count"] < min_films],
+            "min_films": min_films, "unit": "series",
+            "form": FORM_TV, "form_label": TAB_LABELS[FORM_TV], "forms": people_tabs(role)}
+
+
+def person_series_roles(person):
+    """The person's series by role, each series once with the seasons they
+    are in and their average over those seasons, rated ones only."""
+    blocks = []
+    for role in SEASON_ROLE_ORDER:
+        rows = {}
+        for credit in (person.season_credits.filter(role=role)
+                       .select_related("season__series")
+                       .order_by("season__series__first_year", "season__series__title", "season__number")):
+            series = credit.season.series
+            row = rows.setdefault(series.pk, {"series": series, "numbers": [], "ratings": [],
+                                              "character": credit.character, "episodes": 0})
+            row["numbers"].append(credit.season.number)
+            row["episodes"] += credit.episodes or 0
+            if credit.season.rating is not None:
+                row["ratings"].append(credit.season.rating)
+        if not rows:
+            continue
+        for row in rows.values():
+            row["seasons"] = season_span(row["numbers"])
+            row["avg"] = sum(row["ratings"]) / len(row["ratings"]) if row["ratings"] else None
+        averages = [r["avg"] for r in rows.values() if r["avg"] is not None]
+        label = SeasonCredit.Role(role).label
+        if role == SeasonCredit.Role.ACTOR and person.gender in CAST_LABELS:
+            label = CAST_LABELS[person.gender][0]
+        blocks.append({"role": role, "label": label, "rows": list(rows.values()),
+                       "count": len(rows),
+                       "avg": sum(averages) / len(averages) if averages else None})
     return blocks

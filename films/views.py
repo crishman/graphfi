@@ -218,7 +218,7 @@ def people(request):
     form = None
     if role in stats.SPLIT_ROLES:
         form = request.GET.get("form", stats.FORM_FEATURE)
-        if form not in stats.FORM_ORDER:
+        if form not in dict(stats.people_tabs(role)):
             raise Http404("Unknown film form")
     tables = stats.people_tables(role, form=form)
     context = {
@@ -237,6 +237,7 @@ def person_detail(request, pk):
     context = {
         "person": person,
         "role_blocks": stats.person_roles(person),
+        "series_blocks": stats.person_series_roles(person),
     }
     return render(request, "films/person_detail.html", context)
 

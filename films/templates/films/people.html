@@ -20,9 +20,9 @@
 
 {% for table in tables %}
 <section class="panel">
-  <h2>{{ table.title }}{% if table.form %} — {{ table.form_label|lower }}{% endif %}</h2>
+  <h2>{{ table.title }}{% if table.form %} — {% if table.form == "tv" %}TV{% else %}{{ table.form_label|lower }}{% endif %}{% endif %}</h2>
   <table class="people-table">
-    <thead><tr><th></th><th>Name</th><th class="num-col">Films</th><th class="num-col">Avg</th></tr></thead>
+    <thead><tr><th></th><th>Name</th><th class="num-col">{{ table.unit|capfirst }}</th><th class="num-col">Avg</th></tr></thead>
     <tbody>
     {% for p in table.ranked %}
       <tr>
@@ -34,7 +34,7 @@
     {% empty %}
       <tr><td colspan="4" class="hint">
         {% if table.rest %}
-          Nobody has {{ table.min_films }} rated films yet — everyone so far is in the list below.
+          Nobody has {{ table.min_films }} rated {{ table.unit }} yet — everyone so far is in the list below.
         {% else %}
           Nobody here yet — these tables are built from your ratings. Rate a few films and their {{ table.title|lower }} will appear.
         {% endif %}
@@ -45,7 +45,7 @@
 
   {% if table.rest %}
   <details{% if not table.ranked %} open{% endif %}>
-    <summary>Fewer than {{ table.min_films }} rated films — {{ table.rest|length }} people</summary>
+    <summary>Fewer than {{ table.min_films }} rated {{ table.unit }} — {{ table.rest|length }} people</summary>
     <table class="people-table">
       <tbody>
       {% for p in table.rest %}

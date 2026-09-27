@@ -41,6 +41,31 @@
   </table>
 </section>
 {% empty %}
-<p class="hint">No credits recorded.</p>
+{% if not series_blocks %}<p class="hint">No credits recorded.</p>{% endif %}
+{% endfor %}
+
+{% for block in series_blocks %}
+<section class="panel">
+  <h2>As {{ block.label|lower }} · TV
+    <span class="num" style="font-size:0.9rem;color:var(--muted)">
+      {{ block.count }} series{% if block.avg %}, avg {{ block.avg|floatformat:1 }}{% endif %}
+    </span>
+  </h2>
+  <table>
+    <thead><tr><th class="num-col">Aired</th><th>Series</th><th>Seasons</th>{% if block.role == "act" %}<th>Character</th>{% endif %}{% if block.role == "dir" %}<th class="num-col">Episodes</th>{% endif %}<th class="num-col">Rating</th></tr></thead>
+    <tbody>
+    {% for row in block.rows %}
+      <tr>
+        <td class="num-col num">{{ row.series.first_year }}</td>
+        <td><a href="/series/{{ row.series.pk }}/">{{ row.series.title }}</a></td>
+        <td class="num">{{ row.seasons }}</td>
+        {% if block.role == "act" %}<td class="hint">{{ row.character }}</td>{% endif %}
+        {% if block.role == "dir" %}<td class="num-col num">{{ row.episodes }}</td>{% endif %}
+        <td class="num-col num">{% if row.avg %}{{ row.avg|floatformat:1 }}{% else %}—{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endfor %}
 {% endblock %}

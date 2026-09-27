@@ -55,7 +55,7 @@
       <div class="people-block">
         <h3><a href="/people/?role={{ table.role }}">{{ table.title }}</a>{% if table.form %}
           <span class="hint form-links"> — {{ table.form_label|lower }} ·
-            {% for f, label in table.forms %}{% if f != table.form %}<a href="/people/?role={{ table.role }}&amp;form={{ f }}">{{ label|lower }}</a> {% endif %}{% endfor %}
+            {% for f, label in table.forms %}{% if f != table.form %}<a href="/people/?role={{ table.role }}&amp;form={{ f }}">{% if f == "tv" %}TV{% else %}{{ label|lower }}{% endif %}</a> {% endif %}{% endfor %}
           </span>{% endif %}</h3>
         <table class="people-table">
           <thead><tr><th></th><th>Name</th><th class="num-col">Films</th><th class="num-col">Avg</th></tr></thead>
@@ -70,7 +70,7 @@
           {% empty %}
             <tr><td colspan="4" class="hint">
               {% if table.rest %}
-                Nobody has {{ table.min_films }} rated films yet — everyone is still below the ranking threshold.
+                Nobody has {{ table.min_films }} rated {{ table.unit }} yet — everyone is still below the ranking threshold.
               {% else %}
                 Appears once rated films accumulate.
               {% endif %}
@@ -80,7 +80,7 @@
         </table>
         {% if table.rest %}
         <details{% if not table.ranked %} open{% endif %}>
-          <summary>Fewer than {{ table.min_films }} rated films — {{ table.rest|length }} people</summary>
+          <summary>Fewer than {{ table.min_films }} rated {{ table.unit }} — {{ table.rest|length }} people</summary>
           <table class="people-table">
             <tbody>
             {% for p in table.rest|slice:":10" %}
