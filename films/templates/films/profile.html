@@ -5,8 +5,21 @@
 {% block content %}
 <h1>Watch journal</h1>
 
+<p class="hint kind-switch">
+  {% if kind == "series" %}
+    <a href="/">Films</a> · <strong>Series</strong>
+  {% else %}
+    <strong>Films</strong> · <a href="?kind=series">Series</a>
+  {% endif %}
+</p>
+
 <section class="stat-row">
+  {% if kind == "series" %}
+  <div class="stat"><span class="num">{{ overview.series }}</span><span class="stat-label">series</span></div>
+  <div class="stat"><span class="num">{{ overview.total }}</span><span class="stat-label">seasons</span></div>
+  {% else %}
   <div class="stat"><span class="num">{{ overview.total }}</span><span class="stat-label">films</span></div>
+  {% endif %}
   <div class="stat"><span class="num">{{ overview.rated }}</span><span class="stat-label">rated</span></div>
   <div class="stat"><span class="num">{% if overview.avg %}{{ overview.avg|floatformat:1 }}{% else %}—{% endif %}</span><span class="stat-label">average</span></div>
   <div class="stat"><span class="num">{% if overview.span %}{{ overview.years_covered }}/{{ overview.span }}{% else %}—{% endif %}</span><span class="stat-label">years covered</span></div>
@@ -14,7 +27,11 @@
 
 <section class="panel">
   <h2>The strip</h2>
+  {% if kind == "series" %}
+  <p class="hint">One frame per year a season aired{% if overview.first_year %}, {{ overview.first_year }}–{{ overview.last_year }}{% endif %}. Brightness is the year's average over rated seasons; a dark frame is a year with none. Click a frame to open its series.</p>
+  {% else %}
   <p class="hint">One frame per release year{% if overview.first_year %}, {{ overview.first_year }}–{{ overview.last_year }}{% endif %}. Brightness is the year's average; a dark frame is a year not touched yet. Click a frame to open its films.</p>
+  {% endif %}
   <div class="scroll-x">{{ rail }}</div>
 </section>
 
@@ -23,9 +40,9 @@
   <p class="hint">
     X axis:
     {% if axis == "year" %}
-      <strong>release year</strong> · <a href="?axis=watched">switch to watch date</a>
+      <strong>{% if kind == "series" %}air year{% else %}release year{% endif %}</strong> · <a href="?axis=watched{% if kind == "series" %}&amp;kind=series{% endif %}">switch to watch date</a>
     {% else %}
-      <strong>watch date</strong> · <a href="?axis=year">switch to release year</a>
+      <strong>watch date</strong> · <a href="?axis=year{% if kind == "series" %}&amp;kind=series{% endif %}">switch to {% if kind == "series" %}air year{% else %}release year{% endif %}</a>
     {% endif %}
   </p>
   <div class="scroll-x">{{ scatter }}</div>
@@ -53,8 +70,8 @@
     {% for table in people_tables %}
       {% if table.ranked or table.rest %}
       <div class="people-block">
-        <h3><a href="/people/?role={{ table.role }}">{{ table.title }}</a>{% if table.form %}
-          <span class="hint form-links"> — {{ table.form_label|lower }} ·
+        <h3><a href="/people/?role={{ table.role }}{% if table.form == "tv" %}&amp;form=tv{% endif %}">{{ table.title }}</a>{% if table.form %}
+          <span class="hint form-links"> — {% if table.form == "tv" %}TV{% else %}{{ table.form_label|lower }}{% endif %} ·
             {% for f, label in table.forms %}{% if f != table.form %}<a href="/people/?role={{ table.role }}&amp;form={{ f }}">{% if f == "tv" %}TV{% else %}{{ label|lower }}{% endif %}</a> {% endif %}{% endfor %}
           </span>{% endif %}</h3>
         <table class="people-table">
@@ -92,7 +109,7 @@
               </tr>
             {% endfor %}
             {% if table.rest|length > 10 %}
-              <tr><td colspan="4" class="hint"><a href="/people/?role={{ table.role }}">all {{ table.rest|length }} →</a></td></tr>
+              <tr><td colspan="4" class="hint"><a href="/people/?role={{ table.role }}{% if table.form == "tv" %}&amp;form=tv{% endif %}">all {{ table.rest|length }} →</a></td></tr>
             {% endif %}
             </tbody>
           </table>

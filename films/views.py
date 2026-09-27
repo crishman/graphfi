@@ -22,8 +22,13 @@ SORTS = {
 }
 
 
+SEASON_UNIT = ("season", "seasons")
+
+
 def profile(request):
     axis = "watched" if request.GET.get("axis") == "watched" else "year"
+    if request.GET.get("kind") == "series":
+        return _series_profile(request, axis)
     # The profile carries the survey's spine — features — for the sliced
     # roles; shorts and animation are one link away.
     people = [
@@ -42,6 +47,30 @@ def profile(request):
         "genre_bars": mark_safe(charts.genre_bars_svg(stats.genre_averages())),
         "heatmap": mark_safe(charts.heatmap_svg(stats.genre_decade_matrix())),
         "people_tables": people,
+    }
+    return render(request, "films/profile.html", context)
+
+
+def _series_profile(request, axis):
+    """The profile's other half: the same pictures over rated seasons, and
+    the TV tables for actors and directors. The film view never reads a
+    season, and this one never reads a film."""
+    context = {
+        "kind": "series",
+        "overview": stats.series_overview(),
+        "rail": mark_safe(charts.rail_svg(stats.series_rail_years(),
+                                          url_pattern="/series/?year={year}", unit=SEASON_UNIT)),
+        "scatter": mark_safe(charts.scatter_svg(stats.series_scatter(axis),
+                                                url_pattern="/series/{pk}/")),
+        "axis": axis,
+        "histogram": mark_safe(charts.histogram_svg(stats.series_rating_histogram(), unit=SEASON_UNIT)),
+        "genre_bars": mark_safe(charts.genre_bars_svg(stats.series_genre_averages(),
+                                                      url_pattern="/series/?genre={slug}")),
+        "heatmap": mark_safe(charts.heatmap_svg(stats.series_genre_decade_matrix(),
+                                                url_pattern="/series/?genre={slug}&decade={decade}",
+                                                unit=SEASON_UNIT)),
+        "people_tables": [stats.series_people_for_role(role)
+                          for role in stats.ROLE_ORDER if role in stats.TV_ROLES],
     }
     return render(request, "films/profile.html", context)
 

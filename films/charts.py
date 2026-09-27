@@ -60,12 +60,12 @@ def _placeholder(message, width=640, height=90):
     return _svg(width, height, body, css_class="chart chart-empty")
 
 
-def rail_svg(years, url_pattern="/films/?year={year}"):
+def rail_svg(years, url_pattern="/films/?year={year}", unit=("film", "films")):
     """The film strip: one frame per release year, empty years included.
     This is the signature picture of progress — everything else on the
     profile is secondary."""
     if not years:
-        return _placeholder("No rated films yet — the strip will appear here.")
+        return _placeholder(f"No rated {unit[1]} yet — the strip will appear here.")
 
     frame_w, frame_h, gap = 16, 26, 5
     pad = 8
@@ -88,7 +88,7 @@ def rail_svg(years, url_pattern="/films/?year={year}"):
         if avg is None:
             tip = f"{year} — nothing yet"
         else:
-            films = "film" if count == 1 else "films"
+            films = unit[0] if count == 1 else unit[1]
             tip = f"{year} — {count} {films}, avg {avg:.1f}"
         href = html.escape(url_pattern.format(year=year))
         parts.append(
@@ -230,11 +230,12 @@ def genre_bars_svg(rows, url_pattern="/films/?genre={slug}"):
     return _svg(width, height, "".join(parts))
 
 
-def heatmap_svg(matrix, url_pattern="/films/?genre={slug}&decade={decade}"):
+def heatmap_svg(matrix, url_pattern="/films/?genre={slug}&decade={decade}",
+                unit=("film", "films")):
     """Genre x decade matrix: each cell is the average rating, shown as
     colour and number. Genres are sorted by total film count."""
     if not matrix["rows"]:
-        return _placeholder("The genre x decade matrix needs rated films.")
+        return _placeholder(f"The genre x decade matrix needs rated {unit[1]}.")
 
     cell_w, cell_h, gap = 46, 27, 3
     label_w, header_h = 150, 24
@@ -262,7 +263,7 @@ def heatmap_svg(matrix, url_pattern="/films/?genre={slug}&decade={decade}"):
                     f"fill='{EMPTY_FRAME}'/>"
                 )
                 continue
-            films = "film" if cell["count"] == 1 else "films"
+            films = unit[0] if cell["count"] == 1 else unit[1]
             tip = (
                 f"{row['label']}, {cell['decade']}s — avg {cell['avg']:.1f} "
                 f"over {cell['count']} {films}"
@@ -284,7 +285,7 @@ def heatmap_svg(matrix, url_pattern="/films/?genre={slug}&decade={decade}"):
     return _svg(width, height, "".join(parts))
 
 
-def histogram_svg(bins):
+def histogram_svg(bins, unit=("film", "films")):
     """Distribution of 1–10 ratings."""
     if not any(b["count"] for b in bins):
         return _placeholder("No ratings yet — the histogram will appear here.")
@@ -303,7 +304,7 @@ def histogram_svg(bins):
         x = ml + i * (bar_w + gap)
         bar_h = b["count"] / peak * plot_h if b["count"] else 0
         y = mt + plot_h - bar_h
-        films = "film" if b["count"] == 1 else "films"
+        films = unit[0] if b["count"] == 1 else unit[1]
         parts.append(
             f"<rect x='{x}' y='{y:.1f}' width='{bar_w}' height='{max(bar_h, 1):.1f}' "
             f"rx='2' fill='{rating_color(b['rating']) if b['count'] else EMPTY_FRAME}'>"

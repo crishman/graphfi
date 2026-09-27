@@ -99,6 +99,22 @@ Import matching order: `id`, then `tmdb_id`, then the title + year pair.
 Credits do not travel through CSV — that is `resolve`'s job. `--dry-run`
 runs everything in a transaction and rolls it back.
 
+**4. TV series.** Series live beside the films, in tables of their own, so
+nothing about the film numbers changes when they arrive.
+
+```bash
+python manage.py resolve_series "Twin Peaks"               # asks which candidate is right
+python manage.py resolve_series "Twin Peaks" --year 1990 --auto
+python manage.py resolve_series --tmdb 1920                # by TMDB id, no search
+python manage.py resolve_series --refresh                  # new seasons and credits for linked series
+```
+
+A series comes in with its seasons (TMDB's "Specials" season is skipped) and,
+per season, its regular cast — everyone in at least half of the season's
+episodes, since TMDB lists every guest — its episode directors and its
+creators. The season is what gets rated, on the series page or in the admin
+season list; a series' rating is the average of its rated seasons.
+
 ## What is on the dashboard
 
 - **The strip** — one frame per release year, from the first rated year to
@@ -117,6 +133,12 @@ runs everything in a transaction and rolls it back.
   from the genre and runtime every time; nothing extra is stored.
   The feature cast alone is split again into actors and actresses, by the
   gender TMDB records; shorts, animation and the other roles keep one table.
+  Actors and directors also have a TV tab, one table for all series,
+  animated ones included: a series counts once, and a person's average is
+  the mean over their series of the seasons they are in.
+- **Films | Series** — the switch at the top of the profile. The series view
+  draws the same pictures from rated seasons, each on the year it aired, and
+  shows the TV tables for actors and directors.
   Feature actors with no gender on record are listed under both tables
   rather than dropped, and their gender can be set in the admin.
 

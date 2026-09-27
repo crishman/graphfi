@@ -449,3 +449,106 @@ def person_series_roles(person):
                        "count": len(rows),
                        "avg": sum(averages) / len(averages) if averages else None})
     return blocks
+
+
+# The series side of the profile: the same pictures, one point per rated
+# season on the year it aired. Film functions above are not reused on
+# purpose — they read Film, and that is what keeps them exact.
+
+
+def _rated_seasons():
+    return Season.objects.filter(rating__isnull=False)
+
+
+def series_overview():
+    rated = _rated_seasons()
+    agg = rated.aggregate(n=Count("id"), avg=Avg("rating"), first=Min("year"), last=Max("year"))
+    span = (agg["last"] - agg["first"] + 1) if agg["first"] is not None else 0
+    return {
+        "series": Series.objects.count(),
+        "total": Season.objects.count(),
+        "rated": agg["n"],
+        "avg": agg["avg"],
+        "first_year": agg["first"],
+        "last_year": agg["last"],
+        "span": span,
+        "years_covered": rated.filter(year__isnull=False).values("year").distinct().count(),
+    }
+
+
+def series_rail_years():
+    per_year = {
+        row["year"]: row
+        for row in _rated_seasons().filter(year__isnull=False)
+        .values("year").annotate(count=Count("id"), avg=Avg("rating"))
+    }
+    if not per_year:
+        return []
+    first, last = min(per_year), max(per_year)
+    return [
+        {"year": year,
+         "count": per_year[year]["count"] if year in per_year else 0,
+         "avg": per_year[year]["avg"] if year in per_year else None}
+        for year in range(first, last + 1)
+    ]
+
+
+def series_scatter(axis="year"):
+    """One point per rated season; X is its air year or its watch date.
+    A point opens its series."""
+    qs = _rated_seasons().select_related("series")
+    def point(season, x):
+        return {"x": x, "rating": season.rating, "pk": season.series_id,
+                "title": f"{season.series.title} S{season.number}", "year": season.year}
+    if axis == "watched":
+        points = [point(s, s.watched_at.isoformat())
+                  for s in qs.filter(watched_at__isnull=False).order_by("watched_at")]
+        return {"axis": axis, "points": points, "avg_line": []}
+    qs = qs.filter(year__isnull=False)
+    points = [point(s, s.year) for s in qs.order_by("year")]
+    avg_line = [(row["year"], row["avg"])
+                for row in qs.values("year").annotate(avg=Avg("rating")).order_by("year")]
+    return {"axis": axis, "points": points, "avg_line": avg_line}
+
+
+def series_rating_histogram():
+    counts = dict(_rated_seasons().values_list("rating").annotate(n=Count("id")))
+    return [{"rating": r, "count": counts.get(r, 0)} for r in range(1, 11)]
+
+
+def series_genre_averages():
+    rows = (
+        _rated_seasons()
+        .values("series__genres__slug", "series__genres__label")
+        .exclude(series__genres__slug__isnull=True)
+        .annotate(count=Count("id"), avg=Avg("rating"))
+        .order_by("-avg")
+    )
+    return [{"slug": row["series__genres__slug"], "label": row["series__genres__label"],
+             "count": row["count"], "avg": row["avg"]} for row in rows]
+
+
+def series_genre_decade_matrix():
+    triples = (_rated_seasons().filter(year__isnull=False, series__genres__isnull=False)
+               .values_list("series__genres__slug", "series__genres__label", "year", "rating"))
+    if not triples:
+        return {"decades": [], "rows": []}
+    cells, totals, labels = {}, {}, {}
+    for slug, label, year, rating in triples:
+        decade = year - year % 10
+        acc = cells.setdefault((slug, decade), [0, 0])
+        acc[0] += rating
+        acc[1] += 1
+        totals[slug] = totals.get(slug, 0) + 1
+        labels[slug] = label
+    first = min(decade for _, decade in cells)
+    last = max(decade for _, decade in cells)
+    decades = list(range(first, last + 10, 10))
+    rows = []
+    for slug in sorted(totals, key=lambda s: -totals[s]):
+        row_cells = []
+        for decade in decades:
+            acc = cells.get((slug, decade))
+            row_cells.append({"decade": decade, "avg": acc[0] / acc[1], "count": acc[1]} if acc else None)
+        rows.append({"slug": slug, "label": labels[slug], "total": totals[slug], "cells": row_cells})
+    return {"decades": decades, "rows": rows}
