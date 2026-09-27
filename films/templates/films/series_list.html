@@ -1,0 +1,66 @@
+{% extends "films/base.html" %}
+
+{% block title %}graphfi — series{% endblock %}
+
+{% block content %}
+<h1>Series</h1>
+
+<form method="get" class="filter-form">
+  <div class="field">
+    <label for="s-q">Search</label>
+    <input id="s-q" type="text" name="q" value="{{ q }}" placeholder="title…">
+  </div>
+  <div class="field">
+    <label for="s-genre">Genre</label>
+    <select id="s-genre" name="genre">
+      <option value="">— any —</option>
+      {% for g in genres %}
+      <option value="{{ g.slug }}" {% if g.slug == genre %}selected{% endif %}>{{ g.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="s-sort">Sort</label>
+    <select id="s-sort" name="sort">
+      <option value="-year" {% if sort == "-year" %}selected{% endif %}>first aired ↓</option>
+      <option value="year" {% if sort == "year" %}selected{% endif %}>first aired ↑</option>
+      <option value="-rating" {% if sort == "-rating" %}selected{% endif %}>rating ↓</option>
+      <option value="title" {% if sort == "title" %}selected{% endif %}>title</option>
+    </select>
+  </div>
+  {% if year %}<input type="hidden" name="year" value="{{ year }}">{% endif %}
+  {% if decade %}<input type="hidden" name="decade" value="{{ decade }}">{% endif %}
+  <button type="submit">Filter</button>
+  <a class="btn secondary" href="/series/" style="background:var(--rule);color:var(--text);text-decoration:none">Reset</a>
+</form>
+
+{% if year %}<p class="hint">With a season aired in {{ year }}. <a href="/series/">all series</a></p>{% endif %}
+{% if decade %}<p class="hint">With a season aired in the {{ decade }}s. <a href="/series/?genre={{ genre }}">drop decade</a></p>{% endif %}
+
+<p class="hint num">{{ series_list|length }} series</p>
+
+<table class="film-table">
+  <thead>
+    <tr><th></th><th>Title</th><th class="num-col">Aired</th><th>Genres</th><th class="num-col">Seasons</th><th class="num-col">Rating</th></tr>
+  </thead>
+  <tbody>
+  {% for s in series_list %}
+    <tr>
+      <td class="cell-poster">
+        {% if s.poster_url %}<img src="{{ s.poster_url }}" alt="" loading="lazy">{% else %}<span class="poster-placeholder"></span>{% endif %}
+      </td>
+      <td>
+        <a href="/series/{{ s.pk }}/">{{ s.title }}</a>
+        {% if s.original_title and s.original_title != s.title %}<br><span class="hint">{{ s.original_title }}</span>{% endif %}
+      </td>
+      <td class="num-col num">{{ s.first_year }}{% if s.last_year and s.last_year != s.first_year %}–{{ s.last_year }}{% endif %}</td>
+      <td>{% for g in s.genres.all %}{{ g.label }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+      <td class="num-col num">{{ s.rated_count }} / {{ s.season_count }}</td>
+      <td class="num-col num">{% if s.avg %}{{ s.avg|floatformat:1 }}{% else %}—{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6" class="hint">No series yet — add one with <code>manage.py resolve_series "Title"</code>.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

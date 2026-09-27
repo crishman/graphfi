@@ -8,7 +8,7 @@ ORM, so everything a chart needs must be computed here.
 from django.conf import settings
 from django.db.models import Avg, Count, Max, Min, Q
 
-from .models import Credit, Film, Person
+from .models import Credit, Film, Person, Season, SeasonCredit, Series
 
 # Display order for role blocks and tables.
 ROLE_ORDER = [
@@ -310,3 +310,64 @@ def same_year_films(film):
     return list(
         Film.objects.filter(year=film.year).exclude(pk=film.pk).order_by("title")
     )
+
+
+# -- TV ------------------------------------------------------------------
+# Everything below reads Series / Season / SeasonCredit only; nothing
+# above reads them, so film numbers cannot move when series are added.
+
+SEASON_ROLE_ORDER = [SeasonCredit.Role.CREATOR, SeasonCredit.Role.ACTOR, SeasonCredit.Role.DIRECTOR]
+
+
+def series_rating(series):
+    """A series' rating: the average of its rated seasons, never stored."""
+    return series.seasons.filter(rating__isnull=False).aggregate(avg=Avg("rating"))["avg"]
+
+
+def season_span(numbers):
+    """[1, 2, 3] -> "S1–3", [1, 3] -> "S1, S3"."""
+    numbers = sorted(set(numbers))
+    runs, start = [], None
+    for i, n in enumerate(numbers):
+        if start is None:
+            start = n
+        if i + 1 == len(numbers) or numbers[i + 1] != n + 1:
+            runs.append(f"S{start}" if start == n else f"S{start}–{n}")
+            start = None
+    return ", ".join(runs)
+
+
+def series_credits(series):
+    """The series' people by role, each person once with the seasons they
+    are in: creators, the cast in billing order, directors by episodes
+    directed. In a cartoon the cast is voices."""
+    animated = series.genres.filter(slug="animation").exists()
+    labels = {
+        SeasonCredit.Role.CREATOR: "Creator",
+        SeasonCredit.Role.ACTOR: "Voice actor" if animated else "Actor",
+        SeasonCredit.Role.DIRECTOR: "Director",
+    }
+    entries = {}
+    for credit in (SeasonCredit.objects.filter(season__series=series)
+                   .select_related("person", "season").order_by("season__number", "billing", "id")):
+        entry = entries.setdefault((credit.role, credit.person_id), {
+            "person": credit.person, "character": credit.character,
+            "numbers": [], "episodes": 0, "billing": credit.billing,
+        })
+        entry["numbers"].append(credit.season.number)
+        entry["episodes"] += credit.episodes or 0
+        if credit.billing is not None and (entry["billing"] is None or credit.billing < entry["billing"]):
+            entry["billing"] = credit.billing
+    sort_keys = {
+        SeasonCredit.Role.CREATOR: lambda e: e["person"].name,
+        SeasonCredit.Role.ACTOR: lambda e: (e["billing"] is None, e["billing"] or 0, e["person"].name),
+        SeasonCredit.Role.DIRECTOR: lambda e: (-e["episodes"], e["person"].name),
+    }
+    blocks = []
+    for role in SEASON_ROLE_ORDER:
+        people = sorted((e for (r, _), e in entries.items() if r == role), key=sort_keys[role])
+        for e in people:
+            e["seasons"] = season_span(e["numbers"])
+        if people:
+            blocks.append({"role": role, "label": labels[role], "people": people})
+    return blocks

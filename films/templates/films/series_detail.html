@@ -1,0 +1,111 @@
+{% extends "films/base.html" %}
+
+{% block title %}{{ series.title }} ({{ series.first_year }}) — graphfi{% endblock %}
+
+{% block content %}
+<h1>{{ series.title }} <span class="num" style="color:var(--muted)">{{ series.first_year }}{% if series.last_year and series.last_year != series.first_year %}–{{ series.last_year }}{% endif %}</span></h1>
+
+<div class="film-card">
+  <div class="poster">
+    {% if series.poster_url %}
+      <img src="{{ series.poster_url }}" alt="Poster: {{ series.title }}">
+    {% else %}
+      <div class="poster-placeholder" style="width:240px;height:340px"></div>
+    {% endif %}
+  </div>
+
+  <div style="flex:1">
+    <dl class="film-meta">
+      {% if rating %}
+      <dt>Rating</dt>
+      <dd><span class="rating-badge" style="background:{{ rating_color }}">{{ rating|floatformat:1 }}</span>
+        <span class="hint">average of the rated seasons</span></dd>
+      {% endif %}
+      {% if series.original_title and series.original_title != series.title %}
+      <dt>Original title</dt><dd>{{ series.original_title }}</dd>
+      {% endif %}
+      {% if series.tv_type %}<dt>Type</dt><dd>{{ series.tv_type }}</dd>{% endif %}
+      {% if series.country %}<dt>Country</dt><dd>{{ series.country }}</dd>{% endif %}
+      {% if series.genres.all %}
+      <dt>Genres</dt>
+      <dd>{% for g in series.genres.all %}<a href="/series/?genre={{ g.slug }}">{{ g.label }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</dd>
+      {% endif %}
+      {% if series.imdb_id or series.tmdb_id %}
+      <dt>Links</dt>
+      <dd>
+        {% if series.tmdb_id %}<a href="https://www.themoviedb.org/tv/{{ series.tmdb_id }}" rel="noopener">TMDB</a>{% endif %}
+        {% if series.imdb_id %} <a href="https://www.imdb.com/title/{{ series.imdb_id }}/" rel="noopener">IMDb</a>{% endif %}
+      </dd>
+      {% endif %}
+    </dl>
+    {% if series.note %}
+    <h2>Note</h2>
+    <p>{{ series.note|linebreaksbr }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<section class="panel">
+  <h2>Seasons</h2>
+  <table class="film-table">
+    <thead><tr><th>Season</th><th class="num-col">Aired</th><th class="num-col">Episodes</th><th class="num-col">Rating</th><th>Rate</th></tr></thead>
+    <tbody>
+    {% for season, color, name in seasons %}
+      <tr id="season-{{ season.number }}">
+        <td>S{{ season.number }}{% if name %} <span class="hint">{{ name }}</span>{% endif %}</td>
+        <td class="num-col num">{{ season.year|default:"—" }}</td>
+        <td class="num-col num">{{ season.episode_count|default:"—" }}</td>
+        <td class="num-col num">{% if season.rating %}<span class="rating-badge" style="background:{{ color }}">{{ season.rating }}</span>{% else %}—{% endif %}</td>
+        <td>
+          <form method="post" action="/season/{{ season.pk }}/rate/" class="rate-form">
+            {% csrf_token %}
+            <span class="rate-buttons">
+              {% for value, bg, ink in rating_buttons %}
+              <button type="submit" name="rating" value="{{ value }}"
+                      class="rate-btn num{% if season.rating == value %} current{% endif %}"
+                      style="background:{{ bg }};color:{{ ink }}"
+                      aria-label="Rate season {{ season.number }}: {{ value }}">{{ value }}</button>
+              {% endfor %}
+            </span>
+            <span class="rate-date">
+              <label for="rate-watched-{{ season.pk }}">watched on</label>
+              <input id="rate-watched-{{ season.pk }}" type="text" name="watched_at" class="num"
+                     size="12" placeholder="DD.MM.YYYY"
+                     value="{% if season.watched_at %}{{ season.watched_at|date:'d.m.Y' }}{% else %}{{ today|date:'d.m.Y' }}{% endif %}">
+              <button type="submit" name="rating" value="keep" class="rate-keep">save date</button>
+              {% if season.rating %}<button type="submit" name="rating" value="clear" class="rate-keep">clear</button>{% endif %}
+            </span>
+          </form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="hint">No seasons recorded.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if credit_blocks %}
+<section class="panel">
+  <h2>People</h2>
+  <div class="people-grid">
+    {% for block in credit_blocks %}
+    <div>
+      <h3>{{ block.label }}{{ block.people|length|pluralize }}</h3>
+      <table>
+        <tbody>
+        {% for e in block.people %}
+          <tr>
+            <td class="cell-photo">{% if e.person.photo_url %}<img src="{{ e.person.photo_url }}" alt="" loading="lazy">{% else %}<span class="no-photo"></span>{% endif %}</td>
+            <td><a href="/person/{{ e.person.pk }}/">{{ e.person.name }}</a></td>
+            <td class="hint">{% if block.role == "act" %}{{ e.character }}{% if e.character %} · {% endif %}{% endif %}{{ e.seasons }}{% if block.role == "dir" %} · {{ e.episodes }} ep.{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
